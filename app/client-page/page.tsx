@@ -81,17 +81,22 @@ export default function ClientPage() {
 
           <CardContent>
             {/* Search Input */}
+            <div className="flex items-center justify-between mb-4">
             <input
-              type="text"
-              placeholder="Cari klien..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="mb-4 p-2 border border-gray-300 rounded w-50 text-sm"
+                type="text"
+                placeholder="Cari klien..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="p-2 border border-gray-300 rounded text-sm w-1/4"
             />
-            <Button onClick={() => router.push("/add-client")} className="ml-195 hover:bg-gray-400 rounded text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" >
-                <Plus className="mr- h-4 w-4" />
+            <Button
+                onClick={() => router.push("/add-client")}
+                className="ml-4 hover:bg-gray-400 rounded text-white font-bold py-2 px-4 focus:outline-none focus:shadow-outline flex items-center"
+            >
+                <Plus className="mr-2 h-4 w-4" />
                 Tambah Klien
             </Button>
+            </div>
 
             <Table>
               <TableHeader>

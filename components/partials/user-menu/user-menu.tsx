@@ -1,7 +1,6 @@
 // components/UserMenu.tsx
 "use client";
 
-import { useState } from "react";
 import { Menu, Transition } from "@headlessui/react";
 import { Fragment } from "react";
 import { LogOut, User, Settings } from "lucide-react";

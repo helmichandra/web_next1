@@ -23,7 +23,15 @@ const dummyClients = [
   { id: 2, name: "Copa del Rey", client_type: "Perusahaan", address: "Valencia", whatsapp_number: "082123847392", email: "cdr@rfef.com", status: "Aktif" },
   { id: 3, name: "La Liga", client_type: "Perusahaan", address: "Sevilla", whatsapp_number:"082123847392", email: "laliga@rfef.com", status: "Aktif" },
 ];
-
+type Client = {
+    id: number;
+    name: string;
+    client_type: string;
+    address: string;
+    whatsapp_number: string;
+    email: string;
+    status: string;
+  };
 export default function ClientPage() {
   const [search, setSearch] = useState("");
   const router = useRouter();
@@ -39,7 +47,7 @@ export default function ClientPage() {
     );
   }, [search]);
 
-  const handleEdit = (client) => {
+  const handleEdit = (client: Client) => {
     router.push(`/edit-client/${client.id}?name=${encodeURIComponent(client.name)}` +
       `&type=${encodeURIComponent(client.client_type)}` +
       `&address=${encodeURIComponent(client.address)}` +
@@ -49,12 +57,12 @@ export default function ClientPage() {
     );
   };
 
-  const handleDelete = (id) => {
-    console.log("Delete client with ID:", id);
+  const handleDelete = (client: Client) => {
+    console.log("Delete client with ID:", client.id);
     // Fungsi untuk menangani hapus client
   };
 
-  const handleMessage = (client) => {
+  const handleMessage = (client: Client) => {
     router.push(`/send-mail?whatsapp=${encodeURIComponent(client.whatsapp_number)}` +
     `&email=${encodeURIComponent(client.email)}`
     );
@@ -121,7 +129,7 @@ export default function ClientPage() {
                             <Edit className="mr-2 h-4 w-4" />
                             <span>Edit</span>
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleDelete(client.id)}>
+                          <DropdownMenuItem onClick={() => handleDelete(client)}>
                             <Trash className="mr-2 h-4 w-4" />
                             <span>Delete</span>
                           </DropdownMenuItem>

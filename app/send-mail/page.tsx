@@ -31,7 +31,7 @@ export default function SendMessagePage() {
   const [emailSubject, setEmailSubject] = useState("");
   const [emailBody, setEmailBody] = useState("");
 
-  const handleSubmit = (e) => {
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (method === "whatsapp") {
       console.log("Send WhatsApp to:", client.whatsapp_number, "Message:", whatsappMessage);

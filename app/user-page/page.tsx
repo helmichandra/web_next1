@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import Sidebar from "@/components/sidebar";
 import {
   Card, CardContent, CardHeader, CardTitle,
 } from "@/components/ui/card";

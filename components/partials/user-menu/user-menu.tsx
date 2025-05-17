@@ -4,12 +4,10 @@
 import { useState } from "react";
 import { Menu, Transition } from "@headlessui/react";
 import { Fragment } from "react";
-import { ChevronDown, LogOut, User, Settings } from "lucide-react";
+import { LogOut, User, Settings } from "lucide-react";
 import Image from "next/image";
 
 export default function UserMenu() {
-  const [isOpen, setIsOpen] = useState(false);
-
   return (
     <Menu as="div" className="relative inline-block text-left">
       <div>

@@ -1,103 +1,105 @@
-import Image from "next/image";
+// app/page.tsx
+"use client";
+
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 export default function Home() {
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+    <>
+      <h1 className="text-3xl font-bold mb-6">Dashboard</h1>
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+      <div className="grid gap-6 md:grid-cols-2">
+        {/* Form Card */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Form Kontak</CardTitle>
+            <CardDescription>Kirim pesan kepada kami</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="name">Nama</Label>
+                <Input id="name" placeholder="Masukkan nama Anda" />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="email">Email</Label>
+                <Input id="email" type="email" placeholder="email@contoh.com" />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="message">Pesan</Label>
+                <textarea
+                  id="message"
+                  className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+                  placeholder="Tulis pesan Anda di sini..."
+                />
+              </div>
+            </div>
+          </CardContent>
+          <CardFooter>
+            <Button className="w-full">Kirim Pesan</Button>
+          </CardFooter>
+        </Card>
+
+        {/* Info Card */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Informasi</CardTitle>
+            <CardDescription>Detail kontak kami</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <PhoneIcon />
+                <span>+62 123 4567 890</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <MailIcon />
+                <span>info@dappa.com</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <MapPinIcon />
+                <span>Jl. Cukimai No. 182, Jakarta</span>
+              </div>
+            </div>
+          </CardContent>
+          <CardFooter>
+            <Button variant="outline" className="w-full">Lihat di Peta</Button>
+          </CardFooter>
+        </Card>
+      </div>
+    </>
+  );
+}
+
+// Ikon tetap sama seperti sebelumnya
+function PhoneIcon() {
+  return (
+    <svg className="w-5 h-5 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" fill="none"
+      viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+      <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6A19.79 19.79 0 012.18 4.11 2 2 0 014.11 2h3a2 2 0 012 1.72c.1.96.4 1.88.7 2.81a2 2 0 01-.45 2.11l-1.27 1.27a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.93.3 1.85.6 2.81.7a2 2 0 011.72 2z" />
+    </svg>
+  );
+}
+
+function MailIcon() {
+  return (
+    <svg className="w-5 h-5 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" fill="none"
+      viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+      <path d="M4 4h16c1.1 0 2 .9 2 2v12a2 2 0 01-2 2H4a2 2 0 01-2-2V6c0-1.1.9-2 2-2z" />
+      <polyline points="22,6 12,13 2,6" />
+    </svg>
+  );
+}
+
+function MapPinIcon() {
+  return (
+    <svg className="w-5 h-5 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" fill="none"
+      viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+      <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
+      <circle cx="12" cy="10" r="3" />
+    </svg>
   );
 }

@@ -35,7 +35,7 @@ export default function Sidebar() {
     { label: "Riwayat Layanan", href: "#" },
     { label: "Laporan", href: "#" },
     { label: "Master Data", href: "#" },
-    { label: "Logout", href: "#" },
+    { label: "Logout", href: "/auth/sign-in" },
   ];
 
   const filteredItems = menuItems.filter((item) => {

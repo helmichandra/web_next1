@@ -17,24 +17,19 @@ export default function SignInForm() {
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
 
-  const handleLogin = async (e) => {
+  const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setError("")
     setIsLoading(true)
-    
+  
     try {
-      // Simulate API call with a delay
       await new Promise(resolve => setTimeout(resolve, 1500))
-      
-      // Check for admin credentials
+  
       if ((email === "admin" || email === "admin@gmail.com") && password === "password123") {
-        // Redirect to dashboard
         router.push("/dashboard")
       } else if (!email || !password) {
-        // Show error for empty fields
         setError("Harap isi email dan kata sandi.")
       } else {
-        // Show specific errors based on the validation
         if (email !== "admin" && email !== "admin@gmail.com") {
           setError("Email atau username tidak ditemukan.")
         } else {
@@ -42,11 +37,13 @@ export default function SignInForm() {
         }
       }
     } catch (err) {
+      console.error(err)
       setError("Terjadi kesalahan saat proses login. Silakan coba lagi.")
     } finally {
       setIsLoading(false)
     }
   }
+  
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-white-50">

@@ -24,11 +24,11 @@ export default function Sidebar() {
     { label: "Dashboard", href: "/" },
     {
       label: "Pengguna",
-      children: [{ label: "Manajemen Pengguna", href: "/user-page" }],
+      children: [{ label: "Manajemen Pengguna", href: "/dashboard/user-page" }],
     },
     {
       label: "Klien",
-      children: [{ label: "Daftar Klien", href: "/client-page" }],
+      children: [{ label: "Daftar Klien", href: "/dashboard/client-page" }],
     },
     { label: "Layanan", href: "#" },
     { label: "Pengingat WhatsApp", href: "#" },

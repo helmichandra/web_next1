@@ -14,6 +14,7 @@ export const metadata = {
   description: 'Aplikasi dashboard dengan sidebar dan navbar',
 }
 
+
 export default function RootLayout({
   children,
 }: {

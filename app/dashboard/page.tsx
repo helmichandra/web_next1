@@ -5,11 +5,71 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useRouter } from 'next/navigation';
+import { useState, useEffect } from "react";
+import { jwtDecode } from 'jwt-decode';
+import { toast } from 'sonner';
+interface DecodedToken {
+  id: string;
+  username: string;
+  email: string;
+  role: string;
+  exp: number;
+  // tambahkan properti lain sesuai kebutuhan
+}
 
 export default function Home() {
+  const [userData, setUserData] = useState<DecodedToken | null>(null);
+  const router = useRouter();
+
+  useEffect(() => {
+    const storedToken = localStorage.getItem('token');
+    
+    if (!storedToken) {
+      router.push('/login');
+      return;
+    }
+
+    try {
+      const decoded = jwtDecode<DecodedToken>(storedToken);
+      setUserData(decoded);
+      
+      // Cek apakah token sudah expired
+      if (decoded.exp && decoded.exp < Date.now() / 1000) {
+        console.warn('Token has expired');
+        localStorage.removeItem('token');
+        router.push('/auth/sign-in');
+        return;
+      }
+      const timeout = setTimeout(() => {
+        toast.warning("Sesi Anda telah habis. Silakan login kembali.");
+        localStorage.removeItem('token');
+        setTimeout(() => {
+          router.push('/auth/sign-in');
+        }, 2000); // beri waktu 2 detik untuk tampilkan toast
+      }, 30 * 60 * 1000); // 30 menit
+  
+      return () => clearTimeout(timeout); 
+
+    } catch (error) {
+      console.error('Failed to decode token:', error);
+      localStorage.removeItem('token');
+      router.push('/auth/sign-in');
+    }
+  }, [router]);
+
+  if (!userData) {
+    return <div className="flex justify-center items-center h-screen">Loading...</div>;
+  }
+
   return (
     <>
-      <h1 className="text-3xl font-bold mb-6">Dashboard</h1>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold">Dashboard {userData.role}</h1>
+        <div className="text-sm text-muted-foreground">
+          Welcome back, {userData.username} 
+        </div>
+      </div>
 
       <div className="grid gap-6 md:grid-cols-2">
         {/* Form Card */}
@@ -26,7 +86,12 @@ export default function Home() {
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="email">Email</Label>
-                <Input id="email" type="email" placeholder="email@contoh.com" />
+                <Input 
+                  id="email" 
+                  type="email" 
+                  placeholder="email@contoh.com"
+                  defaultValue={userData.email}
+                />
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="message">Pesan</Label>

@@ -9,40 +9,104 @@ import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { Eye, EyeOff } from "lucide-react"
 
+interface TokenData {
+  id: string;
+  username: string;
+  email: string;
+  role: string;
+  exp: number;
+}
 export default function SignInForm() {
   const [showPassword, setShowPassword] = useState(false)
-  const [email, setEmail] = useState("")
+  const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
 
+  const decodeToken = (token: string): TokenData | null => {
+    try {
+        const base64Url = token.split('.')[1];
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const jsonPayload = decodeURIComponent(
+            atob(base64)
+                .split('')
+                .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+                .join('')
+        );
+        return JSON.parse(jsonPayload);
+    } catch (error) {
+        console.error("Failed to decode token:", error);
+        return null;
+    }
+  };
+  const storeToken = (token: string) => {
+    try {
+      // Simpan token di localStorage (alternatif: gunakan cookies dengan httpOnly dan secure)
+      localStorage.setItem("token", token);
+      
+      // Dekode token untuk mendapatkan informasi user
+      const decodedToken = decodeToken(token);
+      
+      if (decodedToken) {
+        // Simpan informasi user yang diperlukan (tanpa data sensitif)
+        const userData = {
+          id: decodedToken.id,
+          username: decodedToken.username,
+          email: decodedToken.email,
+          role: decodedToken.role
+        };
+        localStorage.setItem("userData", JSON.stringify(userData));
+      }
+    } catch (error) {
+      console.error("Failed to store token:", error);
+    }
+  };
+
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    setError("")
-    setIsLoading(true)
+    e.preventDefault();
+    setError("");
+    setIsLoading(true);
   
     try {
-      await new Promise(resolve => setTimeout(resolve, 1500))
+      const response = await fetch('/api/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Api-Key': 'X-Secret-Key',
+        },
+        body: JSON.stringify({
+          username: username,
+          password: password,
+        }),
+      });
   
-      if ((email === "admin" || email === "admin@gmail.com") && password === "password123") {
-        router.push("/dashboard")
-      } else if (!email || !password) {
-        setError("Harap isi email dan kata sandi.")
-      } else {
-        if (email !== "admin" && email !== "admin@gmail.com") {
-          setError("Email atau username tidak ditemukan.")
-        } else {
-          setError("Kata sandi yang Anda masukkan salah.")
-        }
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
+  
+      const result = await response.json();
+      console.log('Login success:', result);
+      if (result.data && result.data.token) {
+        storeToken(result.data.token);
+        
+        // Redirect ke dashboard setelah login sukses
+        router.push("/dashboard");
+      } else {
+        throw new Error("Token not received from server");
+      }
+      // Misal: simpan token ke localStorage (opsional)
+      // localStorage.setItem("token", result.data.token);
+  
     } catch (err) {
-      console.error(err)
-      setError("Terjadi kesalahan saat proses login. Silakan coba lagi.")
+      console.error("Login error:", err);
+      setError("Gagal login. Silakan coba lagi.");
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
+  
+  
   
 
   return (
@@ -68,13 +132,13 @@ export default function SignInForm() {
         <CardContent className="space-y-4">
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-1">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="username">Email</Label>
               <Input 
-                id="email" 
+                id="username" 
                 type="text" 
-                placeholder="Email" 
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Username/Email" 
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
               />
             </div>
 
@@ -126,9 +190,6 @@ export default function SignInForm() {
         </CardContent>
 
         <CardFooter className="flex flex-col gap-2 text-center text-sm text-muted-foreground">
-          <p>
-            Demo login: <strong>admin@gmail.com</strong> / <strong>password123</strong>
-          </p>
           <p>
             Lupa Password?{" "}
             <a href="/auth/change-password" className="text-blue-600 hover:underline font-semibold">

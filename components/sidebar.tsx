@@ -1,17 +1,28 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { ChevronUp, ChevronDown } from "lucide-react";
+import Cookies from "js-cookie";
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const [search, setSearch] = useState("");
   const [openMenus, setOpenMenus] = useState<{ [key: string]: boolean }>({
     Pengguna: true,
     Klien: true,
   });
+
+  const handleLogout = () => {
+    // Hapus token dari localStorage dan cookies
+    localStorage.removeItem("token");
+    Cookies.remove("token");
+
+    // Redirect ke halaman sign-in
+    router.push("/auth/sign-in");
+  };
 
   const toggleMenu = (label: string) => {
     setOpenMenus((prev) => ({
@@ -35,7 +46,7 @@ export default function Sidebar() {
     { label: "Riwayat Layanan", href: "#" },
     { label: "Laporan", href: "#" },
     { label: "Master Data", href: "#" },
-    { label: "Logout", href: "/auth/sign-in" },
+    { label: "Logout", onClick: handleLogout },
   ];
 
   const filteredItems = menuItems.filter((item) => {
@@ -62,7 +73,6 @@ export default function Sidebar() {
         {filteredItems.map((item, index) => {
           if (item.children) {
             const isOpen = openMenus[item.label];
-
             const filteredChildren = item.children.filter((child) =>
               child.label.toLowerCase().includes(search.toLowerCase())
             );
@@ -78,11 +88,7 @@ export default function Sidebar() {
                   className="w-full text-left text-sm font-medium p-2 rounded hover:bg-gray-200 flex justify-between items-center"
                 >
                   <span>{item.label}</span>
-                  {isOpen ? (
-                    <ChevronUp className="w-4 h-4 text-gray-500" />
-                    ) : (
-                    <ChevronDown className="w-4 h-4 text-gray-500" />
-                    )}
+                  {isOpen ? <ChevronUp className="w-4 h-4 text-gray-500" /> : <ChevronDown className="w-4 h-4 text-gray-500" />}
                 </button>
                 {isOpen && filteredChildren.length > 0 && (
                   <div className="ml-4 space-y-1">
@@ -99,6 +105,18 @@ export default function Sidebar() {
                     ))}
                   </div>
                 )}
+              </div>
+            );
+          }
+
+          if (item.onClick) {
+            return (
+              <div
+                key={index}
+                onClick={item.onClick}
+                className="text-sm font-medium p-2 rounded cursor-pointer hover:bg-gray-200"
+              >
+                {item.label}
               </div>
             );
           }

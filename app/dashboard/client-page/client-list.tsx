@@ -87,7 +87,7 @@ export default function ClienList() {
               />
               <Button
                 onClick={() => router.push("/dashboard/add-client")}
-                className="ml-4 hover:bg-gray-400 rounded text-white font-bold py-2 px-4 focus:outline-none focus:shadow-outline flex items-center"
+                className=" hover:bg-gray-400 rounded text-white font-bold py-2 px-4 focus:outline-none focus:shadow-outline flex items-center"
               >
                 <Plus className="mr-2 h-4 w-4" />
                 Tambah Klien

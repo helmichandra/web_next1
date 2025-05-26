@@ -5,8 +5,50 @@ import { Menu, Transition } from "@headlessui/react";
 import { Fragment } from "react";
 import { LogOut, User, Settings } from "lucide-react";
 import Image from "next/image";
+import { jwtDecode } from 'jwt-decode';
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import Cookies from "js-cookie";
+
+interface DecodedToken {
+  id: string;
+  username: string;
+  email: string;
+  role: string;
+  exp: number;
+}
 
 export default function UserMenu() {
+  const router = useRouter();
+  const [username, setUsername] = useState<string>("");
+  const [email, setEmail] = useState<string>("");
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const storedToken = localStorage.getItem("token");
+      
+      if (storedToken) {
+        try {
+          const decoded = jwtDecode<DecodedToken>(storedToken);
+          if (decoded.username) {
+            setUsername(decoded.username);
+          }
+          if (decoded.email) {
+            setEmail(decoded.email);
+          }
+        } catch (error) {
+          console.error("Error decoding token:", error);
+          setUsername("Unknown User");
+        }
+      }
+    }
+  }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    Cookies.remove("token");
+    router.push("/auth/sign-in");
+  };
   return (
     <Menu as="div" className="relative inline-block text-left">
       <div>
@@ -32,8 +74,8 @@ export default function UserMenu() {
       >
         <Menu.Items className="absolute right-0 mt-2 w-64 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-50">
           <div className="p-4 border-b">
-            <p className="font-medium text-sm">Cody Fisher</p>
-            <p className="text-sm text-gray-500">c.fisher@gmail.com</p>
+            <p className="font-medium text-sm">{username}</p>
+            <p className="text-sm text-gray-500">{email}</p>
           </div>
 
           <div className="py-1">
@@ -72,6 +114,7 @@ export default function UserMenu() {
                   className={`${
                     active ? "bg-gray-100" : ""
                   } flex items-center px-4 py-2 text-sm text-gray-700`}
+                  onClick={handleLogout}
                 >
                   <LogOut className="w-4 h-4 mr-2" />
                   Logout

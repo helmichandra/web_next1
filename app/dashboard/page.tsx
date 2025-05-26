@@ -122,11 +122,11 @@ export default function Home() {
               </div>
               <div className="flex items-center gap-2">
                 <MailIcon />
-                <span>info@dappa.com</span>
+                <span>resolusiweb@test.com</span>
               </div>
               <div className="flex items-center gap-2">
                 <MapPinIcon />
-                <span>Jl. Cukimai No. 182, Jakarta</span>
+                <span>Jl. Testing No. 182, Jakarta</span>
               </div>
             </div>
           </CardContent>

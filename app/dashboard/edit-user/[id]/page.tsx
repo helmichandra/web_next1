@@ -3,24 +3,23 @@
 import React, { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import {
-  Card, CardContent, CardHeader, CardTitle, CardFooter,
+  Card, CardContent, CardHeader, CardTitle,
 } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertCircle, ArrowLeft, Save, User } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { jwtDecode } from 'jwt-decode';
 
-type UserDetail = {
-  id: number;
-  name: string;
+interface DecodedToken {
+  id: string;
   username: string;
   email: string;
-  role_id: number;
-  role_name: string;
-};
+  role: string;
+  exp: number;
+}
+
+
 
 type Role = {
   id: number;
@@ -32,288 +31,480 @@ type Role = {
   modified_by: string;
 };
 
+type FormData = {
+  name: string;
+  username: string;
+  email: string;
+  role_id: number;
+  modified_by: string;
+};
+
+type FormErrors = {
+  name?: string;
+  username?: string;
+  email?: string;
+  role_id?: string;
+};
+
+// Custom hook for token management and user info
+const useAuth = () => {
+  const [token, setToken] = useState<string | null>(null);
+  const [username, setUsername] = useState<string>("");
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+    if (typeof window !== 'undefined') {
+      const storedToken = localStorage.getItem("token");
+      setToken(storedToken);
+      
+      if (storedToken) {
+        try {
+          const tokenParts = storedToken.split('.');
+          if (tokenParts.length === 3) {
+            const decoded = jwtDecode<DecodedToken>(storedToken);
+            if (decoded.username) {
+              setUsername(decoded.username);
+            }
+          }
+        } catch (error) {
+          console.error("Error decoding token:", error);
+          setUsername("Unknown User");
+        }
+      }
+    }
+  }, []);
+
+  return { token, username, isClient };
+};
+
 export default function EditUserPage() {
   const router = useRouter();
   const params = useParams();
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState("");
+  const userId = params.id as string;
+  
   const [roles, setRoles] = useState<Role[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+  const [formErrors, setFormErrors] = useState<FormErrors>({});
 
-  const [user, setUser] = useState<UserDetail>({
-    id: 0,
+  const { token, username, isClient } = useAuth();
+  
+  const [formData, setFormData] = useState<FormData>({
     name: "",
     username: "",
     email: "",
     role_id: 0,
-    role_name: "",
+    modified_by: username,
   });
 
-  const userId = params.id as string;
-
-  // Fetch roles from API
+  // Update modified_by when username changes
   useEffect(() => {
-    const fetchRoles = async () => {
-      const token = localStorage.getItem("token");
-      
-      if (!token) {
-        setError("Token tidak ditemukan, silakan login kembali");
-        return;
-      }
+    setFormData(prev => ({
+      ...prev,
+      modified_by: username
+    }));
+  }, [username]);
 
-      try {
-        const response = await fetch("/api/roles", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "X-Api-Key": "X-Secret-Key",
-            "Content-Type": "application/json",
-          },
-        });
+  const clearMessages = () => {
+    setError("");
+    setSuccessMessage("");
+    setFormErrors({});
+  };
 
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
+  const handleApiError = (response: Response, defaultMessage: string): string => {
+    const statusMessages: Record<number, string> = {
+      401: "Sesi telah berakhir, silakan login kembali",
+      403: "Anda tidak memiliki izin untuk mengakses resource ini",
+      404: "User tidak ditemukan",
+      422: "Data yang dikirim tidak valid",
+      500: "Terjadi kesalahan pada server. Silakan coba lagi atau hubungi administrator",
+      502: "Server sedang tidak dapat diakses. Silakan coba lagi dalam beberapa menit"
+    };
 
+    return statusMessages[response.status] || `${defaultMessage} (status: ${response.status})`;
+  };
+
+  // Fetch roles
+  const fetchRoles = async () => {
+    if (!token) return;
+
+    try {
+      const response = await fetch("/api/roles", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "X-Api-Key": "X-Secret-Key",
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (response.ok) {
         const json = await response.json();
         if (json.code === 200 && json.data) {
           setRoles(json.data);
-        } else {
-          throw new Error(json.message || "Gagal memuat data roles");
         }
-      } catch (error) {
-        console.error("Error fetching roles:", error);
-        setError(
-          error instanceof Error
-            ? error.message
-            : "Gagal memuat data roles"
-        );
       }
-    };
-
-    fetchRoles();
-  }, []);
-
-  useEffect(() => {
-    const fetchUserDetail = async () => {
-      setIsLoading(true);
-      setError("");
-      const token = localStorage.getItem("token");
-
-      if (!token) {
-        setError("Token tidak ditemukan, silakan login kembali");
-        setIsLoading(false);
-        return;
-      }
-      const startTime = Date.now();
-
-      try {
-        const response = await fetch(`/api/users/id/${userId}`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "X-Api-Key": "X-Secret-Key",
-            "Content-Type": "application/json",
-          },
-        });
-
-        if (!response.ok) {
-          if (response.status === 401) {
-            setError("Sesi telah berakhir, silakan login kembali");
-          } else {
-            throw new Error(`HTTP error! status: ${response.status}`);
-          }
-          return;
-        }
-
-        const json = await response.json();
-        if (json.code === 200 && json.data) {
-          setUser(json.data);
-        } else {
-          throw new Error(json.message || "Gagal memuat detail pengguna");
-        }
-      } catch (error) {
-        console.error("Error fetching user detail:", error);
-        setError(
-          error instanceof Error
-            ? error.message
-            : "Gagal memuat detail pengguna"
-        );
-      } finally {
-        const elapsed = Date.now() - startTime;
-        const delay = Math.max(1000 - elapsed, 0); // minimal 1 detik animasi skeleton
-        setTimeout(() => {
-          setIsLoading(false);
-        }, delay);
-      }
-    };
-
-    if (userId) {
-      fetchUserDetail();
+    } catch (error) {
+      console.error("Error fetching roles:", error);
     }
-  }, [userId]);
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setUser((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSelectChange = (value: string) => {
-    // Find the selected role from the roles array
-    const selectedRole = roles.find(role => role.name === value);
-    if (selectedRole) {
-      setUser((prev) => ({ 
-        ...prev, 
-        role_name: selectedRole.name, 
-        role_id: selectedRole.id 
+  // Fetch user data
+  const fetchUser = async () => {
+    if (!token || !userId) return;
+
+    setIsLoading(true);
+    clearMessages();
+
+    try {
+      const response = await fetch(`/api/users/id/${userId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "X-Api-Key": "X-Secret-Key",
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        const errorMessage = handleApiError(response, "Gagal memuat data user");
+        setError(errorMessage);
+        return;
+      }
+
+      const json = await response.json();
+      if (json.code === 200 && json.data) {
+        const userData = json.data;
+        
+        // Populate form with existing user data
+        setFormData({
+          name: userData.name || "",
+          username: userData.username || "",
+          email: userData.email || "",
+          role_id: userData.role_id || 0,
+          modified_by: username,
+        });
+      } else {
+        setError(json.message || "Gagal memuat data user");
+      }
+    } catch (error) {
+      console.error("Error fetching user:", error);
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        setError("Tidak dapat terhubung ke server. Periksa koneksi internet Anda");
+      } else {
+        setError(error instanceof Error ? error.message : "Gagal memuat data user");
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!isClient || !token) return;
+    
+    fetchRoles();
+    fetchUser();
+  }, [isClient, token, userId, username]);
+
+  const validateForm = (): boolean => {
+    const errors: FormErrors = {};
+
+    if (!formData.name.trim()) {
+      errors.name = "Nama wajib diisi";
+    }
+
+    if (!formData.username.trim()) {
+      errors.username = "Username wajib diisi";
+    }
+
+    if (!formData.email.trim()) {
+      errors.email = "Email wajib diisi";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      errors.email = "Format email tidak valid";
+    }
+
+    if (!formData.role_id || formData.role_id === 0) {
+      errors.role_id = "Role wajib dipilih";
+    }
+
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleInputChange = (field: keyof FormData, value: string | number) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+    
+    // Clear specific field error when user starts typing
+    if (formErrors[field as keyof FormErrors]) {
+      setFormErrors(prev => ({
+        ...prev,
+        [field]: undefined
       }));
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
-    setIsLoading(true);
     
-    const token = localStorage.getItem("token");
-    if (!token) {
-      setError("Token tidak ditemukan, silakan login kembali");
-      setIsLoading(false);
+    if (!validateForm()) {
       return;
     }
+
+    setIsSubmitting(true);
+    clearMessages();
 
     try {
       const response = await fetch(`/api/users/id/${userId}`, {
         method: "PUT",
         headers: {
           Authorization: `Bearer ${token}`,
-            "X-Api-Key": "X-Secret-Key",
-            "Content-Type": "application/json",
+          "X-Api-Key": "X-Secret-Key",
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          name: user.name,
-          username: user.username,
-          email: user.email,
-          // password: "Password123!", // ganti dengan password baru atau kosong
-          role_id: user.role_id,
+          name: formData.name,
+          username: formData.username,
+          email: formData.email,
+          role_id: formData.role_id,
         }),
       });
 
       if (!response.ok) {
-        throw new Error(`Update gagal. Status: ${response.status}`);
+        const errorMessage = handleApiError(response, "Gagal mengupdate user");
+        setError(errorMessage);
+        return;
       }
 
       const json = await response.json();
+      
       if (json.code === 200) {
-        router.push("/dashboard/user-page");
+        setSuccessMessage("User berhasil diupdate!");
+        
+        // Redirect to user list after 2 seconds
+        setTimeout(() => {
+          router.push("/dashboard/user-page");
+        }, 2000);
       } else {
-        throw new Error(json.message || "Gagal memperbarui data");
+        throw new Error(json.message || "Gagal mengupdate user");
       }
-    } catch (err) {
-      console.error("Error updating user:", err);
-      setError(err instanceof Error ? err.message : "Terjadi kesalahan");
+
+    } catch (error) {
+      console.error("Error updating user:", error);
+      
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        setError("Tidak dapat terhubung ke server. Periksa koneksi internet Anda");
+      } else {
+        setError(error instanceof Error ? error.message : "Terjadi kesalahan saat mengupdate user");
+      }
     } finally {
-      setIsLoading(false);
+      setIsSubmitting(false);
     }
   };
 
+  const handleBack = () => {
+    router.push("/dashboard/user-page");
+  };
+
+  // Don't render until client-side hydration is complete
+  if (!isClient) {
+    return (
+      <Card className="mt-5">
+        <CardHeader>
+          <CardTitle>Edit User</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-32 w-full" />
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <Card className="mt-5">
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <User className="mr-2 h-5 w-5" />
+            Edit User
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-32" />
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
-    <div className="flex min-h-screen">
-      <main className="flex-1 p-10">
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              {isLoading ? (
-                <Skeleton className="h-6 w-40" />
-              ) : (
-                `Edit User ${user.name}`
-              )}
-            </CardTitle>
-          </CardHeader>
+    <Card className="mt-5">
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <CardTitle className="flex items-center">
+            <User className="mr-2 h-5 w-5" />
+            Edit User
+          </CardTitle>
+          <Button
+            variant="outline"
+            onClick={handleBack}
+            className="flex items-center"
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Kembali
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {/* Error Alert */}
+        {error && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
 
-          {isLoading ? (
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {Array.from({ length: 4 }).map((_, i) => (
-                  <div className="space-y-2" key={i}>
-                    <Skeleton className="h-4 w-24" />
-                    <Skeleton className="h-10 w-full" />
-                  </div>
+        {/* Success Alert */}
+        {successMessage && (
+          <Alert className="mb-4 border-green-200 bg-green-50">
+            <AlertCircle className="h-4 w-4 text-green-600" />
+            <AlertDescription className="text-green-800">{successMessage}</AlertDescription>
+          </Alert>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Name Field */}
+          <div className="space-y-2">
+            <label htmlFor="name" className="text-sm font-medium text-gray-700">
+              Nama <span className="text-red-500">*</span>
+            </label>
+            <input
+              id="name"
+              type="text"
+              value={formData.name}
+              onChange={(e) => handleInputChange("name", e.target.value)}
+              className={`w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                formErrors.name ? "border-red-500" : "border-gray-300"
+              }`}
+              placeholder="Masukkan nama"
+              disabled={isSubmitting}
+            />
+            {formErrors.name && (
+              <p className="text-red-500 text-sm">{formErrors.name}</p>
+            )}
+          </div>
+
+          {/* Username Field */}
+          <div className="space-y-2">
+            <label htmlFor="username" className="text-sm font-medium text-gray-700">
+              Username <span className="text-red-500">*</span>
+            </label>
+            <input
+              id="username"
+              type="text"
+              value={formData.username}
+              onChange={(e) => handleInputChange("username", e.target.value)}
+              className={`w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                formErrors.username ? "border-red-500" : "border-gray-300"
+              }`}
+              placeholder="Masukkan username"
+              disabled={isSubmitting}
+            />
+            {formErrors.username && (
+              <p className="text-red-500 text-sm">{formErrors.username}</p>
+            )}
+          </div>
+
+          {/* Email Field */}
+          <div className="space-y-2">
+            <label htmlFor="email" className="text-sm font-medium text-gray-700">
+              Email <span className="text-red-500">*</span>
+            </label>
+            <input
+              id="email"
+              type="email"
+              value={formData.email}
+              onChange={(e) => handleInputChange("email", e.target.value)}
+              className={`w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                formErrors.email ? "border-red-500" : "border-gray-300"
+              }`}
+              placeholder="contoh@email.com"
+              disabled={isSubmitting}
+            />
+            {formErrors.email && (
+              <p className="text-red-500 text-sm">{formErrors.email}</p>
+            )}
+          </div>
+
+          {/* Role Field */}
+          <div className="space-y-2">
+            <label htmlFor="role_id" className="text-sm font-medium text-gray-700">
+              Role <span className="text-red-500">*</span>
+            </label>
+            <div className="relative">
+              <select
+                id="role_id"
+                value={formData.role_id}
+                onChange={(e) => handleInputChange("role_id", parseInt(e.target.value))}
+                className={`w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none bg-white ${
+                  formErrors.role_id ? "border-red-500" : "border-gray-300"
+                }`}
+                disabled={isSubmitting}
+              >
+                <option value={0}>Pilih role</option>
+                {roles.map((role) => (
+                  <option key={role.id} value={role.id}>
+                    {role.name}
+                  </option>
                 ))}
-              </div>
-            </CardContent>
-          ) : (
-            <form onSubmit={handleSubmit}>
-              <CardContent className="space-y-4">
-                {error && (
-                  <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-                    {error}
-                  </div>
-                )}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="name">Nama</Label>
-                    <Input
-                      id="name"
-                      name="name"
-                      value={user.name}
-                      onChange={handleChange}
-                      required
-                    />
-                  </div>
+              </select>
+            </div>
+            {formErrors.role_id && (
+              <p className="text-red-500 text-sm">{formErrors.role_id}</p>
+            )}
+          </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="username">Username</Label>
-                    <Input
-                      id="username"
-                      name="username"
-                      value={user.username}
-                      onChange={handleChange}
-                      required
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
-                    <Input
-                      id="email"
-                      name="email"
-                      type="email"
-                      value={user.email}
-                      onChange={handleChange}
-                      required
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="role">Role</Label>
-                    <Select
-                      value={user.role_name}
-                      onValueChange={handleSelectChange}
-                    >
-                      <SelectTrigger id="role">
-                        <SelectValue placeholder="Pilih role" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {roles.map((role) => (
-                          <SelectItem key={role.id} value={role.name}>
-                            {role.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              </CardContent>
-              <CardFooter className="flex justify-between">
-                <Button type="button" variant="outline" onClick={() => router.back()}>
-                  Batal
-                </Button>
-                <Button type="submit" disabled={isLoading}>
-                  {isLoading ? "Menyimpan..." : "Simpan Perubahan"}
-                </Button>
-              </CardFooter>
-            </form>
-          )}
-        </Card>
-      </main>
-    </div>
+          {/* Submit Button */}
+          <div className="flex justify-end space-x-3">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleBack}
+              disabled={isSubmitting}
+            >
+              Batal
+            </Button>
+            <Button
+              type="submit"
+              disabled={isSubmitting}
+              className="flex items-center"
+            >
+              {isSubmitting ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Menyimpan...
+                </>
+              ) : (
+                <>
+                  <Save className="mr-2 h-4 w-4" />
+                  Simpan Perubahan
+                </>
+              )}
+            </Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
   );
 }

@@ -13,10 +13,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreVertical, Edit, Plus, Trash } from "lucide-react";
+import { MoreVertical, Eye, Plus, Trash, AlertCircle, Users, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
-import { Skeleton } from "@/components/ui/skeleton"; 
+import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 type User = {
   id: number;
@@ -32,61 +33,108 @@ type User = {
 type SortDirection = "asc" | "desc";
 type OrderField = "name" | "email" | "role_name" | "created_date";
 
+type PaginationState = {
+  page: number;
+  limit: number;
+  total: number;
+};
+
+type SortConfig = {
+  order: OrderField;
+  sort: SortDirection;
+};
+
+type DeleteConfirmation = {
+  show: boolean;
+  user: User | null;
+};
+
+// Custom hook for token management
+const useAuthToken = () => {
+  const [token, setToken] = useState<string | null>(null);
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+    if (typeof window !== 'undefined') {
+      setToken(localStorage.getItem("token"));
+    }
+  }, []);
+  return { token, isClient };
+};
+
 export default function UserPage() {
   const [search, setSearch] = useState("");
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
   const router = useRouter();
   const [deleteLoading, setDeleteLoading] = useState<number | null>(null);
-  const [deleteConfirmation, setDeleteConfirmation] = useState<{
-    show: boolean;
-    user: User | null;
-  }>({
+  const [deleteConfirmation, setDeleteConfirmation] = useState<DeleteConfirmation>({
     show: false,
     user: null,
   });
   
-  const [pagination, setPagination] = useState({
+  const [pagination, setPagination] = useState<PaginationState>({
     page: 1,
     limit: 10,
     total: 0
   });
-  const [sortConfig, setSortConfig] = useState<{
-    order: OrderField;
-    sort: SortDirection;
-  }>({
+
+  const [sortConfig, setSortConfig] = useState<SortConfig>({
     order: "created_date",
     sort: "desc"
   });
 
-  const buildApiUrl = () => {
+  const { token, isClient } = useAuthToken();
+
+  const buildApiUrl = (): string => {
     const params = new URLSearchParams();
     params.append("page", pagination.page.toString());
     params.append("limit", pagination.limit.toString());
     params.append("order", sortConfig.order);
     params.append("sort", sortConfig.sort);
-    if (search) params.append("search", search);
+    if (search.trim()) params.append("search", search.trim());
 
     return `/api/users?${params.toString()}`;
   };
 
+  const clearMessages = () => {
+    setError("");
+    setSuccessMessage("");
+  };
+
+  const handleApiError = (response: Response, defaultMessage: string): string => {
+    const statusMessages: Record<number, string> = {
+      401: "Sesi telah berakhir, silakan login kembali",
+      403: "Anda tidak memiliki izin untuk mengakses resource ini",
+      404: "Data tidak ditemukan",
+      500: "Terjadi kesalahan pada server. Silakan coba lagi atau hubungi administrator",
+      502: "Server sedang tidak dapat diakses. Silakan coba lagi dalam beberapa menit"
+    };
+
+    return statusMessages[response.status] || `${defaultMessage} (status: ${response.status})`;
+  };
+
   useEffect(() => {
+    if (!isClient) return;
+
     const fetchUsers = async () => {
       setIsLoading(true);
-      setError("");
-      const token = localStorage.getItem("token");
-  
+      clearMessages();
+
       if (!token) {
         setError("Token tidak ditemukan, silakan login kembali");
         setIsLoading(false);
         return;
       }
-  
+
       const startTime = Date.now();
-  
+
       try {
         const apiUrl = buildApiUrl();
+        console.log(apiUrl);
         const response = await fetch(apiUrl, {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -94,78 +142,102 @@ export default function UserPage() {
             "Content-Type": "application/json",
           },
         });
-  
+        console.log(response);
+
         if (!response.ok) {
-          if (response.status === 401) {
-            setError("Sesi telah berakhir, silakan login kembali");
-          } else {
-            setError("Gagal memuat data pengguna (status: " + response.status + ")");
-          }
-          setUsers([]); // kosongkan data agar tidak menampilkan baris lama
+          const errorMessage = handleApiError(response, "Gagal memuat data pengguna");
+          setError(errorMessage);
+          setUsers([]);
           return;
         }
-  
+
         const json = await response.json();
-        if (json.code === 200 && json.data?.data) {
-          setUsers(json.data.data);
-          setPagination(prev => ({
-            ...prev,
-            total: json.data.pagination?.total || 0
-          }));
+        if (json.code === 200 && json.data) {
+          const usersData = json.data.data || [];
+          
+          setUsers(usersData);
+          
+          // ✅ PERBAIKAN PAGINATION: Logika yang sama dengan client-list
+          setPagination(prev => {
+            // Jika data yang dikembalikan kurang dari limit, berarti ini halaman terakhir
+            if (usersData.length < prev.limit) {
+              return {
+                ...prev,
+                total: (prev.page - 1) * prev.limit + usersData.length
+              };
+            } else {
+              // Jika data sama dengan limit, asumsi masih ada data lagi
+              // Set total lebih besar untuk memungkinkan next page
+              return {
+                ...prev,
+                total: Math.max(prev.total, prev.page * prev.limit + 1)
+              };
+            }
+          });
         } else {
           setError(json.message || "Gagal memuat data pengguna");
           setUsers([]);
         }
       } catch (error) {
         console.error("Error fetching users:", error);
-        setError(error instanceof Error ? error.message : "Gagal memuat data pengguna");
+        if (error instanceof TypeError && error.message.includes('fetch')) {
+          setError("Tidak dapat terhubung ke server. Periksa koneksi internet Anda");
+        } else {
+          setError(error instanceof Error ? error.message : "Gagal memuat data pengguna");
+        }
+        setUsers([]);
       } finally {
         const elapsed = Date.now() - startTime;
-        const delay = Math.max(1000 - elapsed, 0); // minimal 1 detik animasi skeleton
+        const delay = Math.max(1000 - elapsed, 0);
         setTimeout(() => {
           setIsLoading(false);
         }, delay);
       }
     };
-  
+
     const debounceTimer = setTimeout(() => {
       fetchUsers();
     }, 500);
-  
+
     return () => clearTimeout(debounceTimer);
-  }, [search, pagination.page, pagination.limit, sortConfig.order, sortConfig.sort]);
-  
+  }, [search, pagination.page, pagination.limit, sortConfig.order, sortConfig.sort, token, isClient]);
 
   const handlePageChange = (newPage: number) => {
     setPagination(prev => ({ ...prev, page: newPage }));
   };
+
+  const handleLimitChange = (newLimit: number) => {
+    setPagination(prev => ({
+      ...prev,
+      limit: newLimit,
+      page: 1
+    }));
+  };
+
+  const handleSearchChange = (value: string) => {
+    setSearch(value);
+    setPagination(prev => ({ ...prev, page: 1 }));
+  };
+
   const handleEdit = (user: User) => {
     router.push(`/dashboard/edit-user/${user.id}`);
   };
-  const handleDelete = async (user: User) => {
-    // Show confirmation dialog first
+
+  const handleDelete = (user: User) => {
     setDeleteConfirmation({
       show: true,
       user: user,
     });
   };
+
   const confirmDelete = async () => {
-    if (!deleteConfirmation.user) return;
-  
+    if (!deleteConfirmation.user || !token) return;
+
     const userId = deleteConfirmation.user.id;
     setDeleteLoading(userId);
-    setError("");
-  
-    const token = localStorage.getItem("token");
-    if (!token) {
-      setError("Token tidak ditemukan, silakan login kembali");
-      setDeleteLoading(null);
-      return;
-    }
-  
+    clearMessages();
+
     try {
-      console.log(`Deleting user with ID: ${userId}`);
-      
       const response = await fetch(`/api/users/id/${userId}`, {
         method: "DELETE",
         headers: {
@@ -174,163 +246,224 @@ export default function UserPage() {
           "Content-Type": "application/json",
         },
       });
+
       if (!response.ok) {
-        if (response.status === 401) {
-          setError("Sesi telah berakhir atau tidak memiliki akses. Silakan login kembali");
-          setDeleteLoading(null);
-          setDeleteConfirmation({ show: false, user: null });
-          return;
-        }
-  
-        if (response.status === 403) {
-          setError("Anda tidak memiliki izin untuk menghapus user ini");
-          setDeleteLoading(null);
-          setDeleteConfirmation({ show: false, user: null });
-          return;
-        }
-        if (response.status === 500) {
-          setError("Terjadi kesalahan pada server. Silakan coba lagi atau hubungi administrator");
-          setDeleteLoading(null);
-          setDeleteConfirmation({ show: false, user: null });
-          return;
-        }
-  
-        if (response.status === 502) {
-          setError("Server sedang tidak dapat diakses. Silakan coba lagi dalam beberapa menit");
-          setDeleteLoading(null);
-          setDeleteConfirmation({ show: false, user: null });
-          return;
-        }
-  
-        let errorMessage = `Gagal menghapus user. Status: ${response.status}`;
-        try {
-          const errorData = await response.json();
-          errorMessage = errorData.message || errorData.error || errorMessage;
-          console.log("Delete error response:", errorData);
-        } catch (parseError) {
-          console.log("Could not parse error response :", parseError);
-        }
-  
-        throw new Error(errorMessage);
+        const errorMessage = handleApiError(response, "Gagal menghapus pengguna");
+        setError(errorMessage);
+        return;
       }
+
       const json = await response.json();
-      console.log("Delete success response:", json);
 
       if (json.code === 200 || json.code === 204) {
-        // Remove user from local state to update UI immediately
         setUsers(prevUsers => prevUsers.filter(u => u.id !== userId));
+        setSuccessMessage(`Pengguna ${deleteConfirmation.user.name} berhasil dihapus`);
         
-        // Show success message (optional)
-        setError(""); // Clear any existing errors
-        
-        // You can add a success toast here if you have toast component
-        console.log(`User ${deleteConfirmation.user.name} berhasil dihapus`);
-        
+        // Auto-hide success message after 3 seconds
+        setTimeout(() => setSuccessMessage(""), 3000);
       } else {
-        throw new Error(json.message || "Gagal menghapus user");
+        throw new Error(json.message || "Gagal menghapus pengguna");
       }
 
     } catch (err) {
       console.error("Error deleting user:", err);
       
-      // Handle network errors
       if (err instanceof TypeError && err.message.includes('fetch')) {
         setError("Tidak dapat terhubung ke server. Periksa koneksi internet Anda");
-      } else if (err instanceof Error && err.message.includes('NetworkError')) {
-        setError("Terjadi masalah jaringan. Silakan periksa koneksi internet");
       } else {
-        setError(err instanceof Error ? err.message : "Terjadi kesalahan saat menghapus user");
+        setError(err instanceof Error ? err.message : "Terjadi kesalahan saat menghapus pengguna");
       }
     } finally {
       setDeleteLoading(null);
       setDeleteConfirmation({ show: false, user: null });
     }
-  }
+  };
 
-    const handleSort = (field: OrderField) => {
-      setSortConfig(prev => ({
-        order: field,
-        sort: prev.order === field ? (prev.sort === "asc" ? "desc" : "asc") : "desc"
-      }));
-      setPagination(prev => ({ ...prev, page: 1 }));
-    };
-  
+  const handleSort = (field: OrderField) => {
+    setSortConfig(prev => ({
+      order: field,
+      sort: prev.order === field ? (prev.sort === "asc" ? "desc" : "asc") : "desc"
+    }));
+    setPagination(prev => ({ ...prev, page: 1 }));
+  };
+
   const cancelDelete = () => {
     setDeleteConfirmation({ show: false, user: null });
   };
 
-  const formatDate = (dateString: string) => {
-    if (dateString === "0001-01-01T00:00:00Z") return "-";
-    return new Date(dateString).toLocaleString();
+  const formatDateTime = (dateString: string): string => {
+    if (dateString === "0001-01-01T00:00:00Z" || !dateString) return "-";
+    try {
+      return new Date(dateString).toLocaleString('id-ID', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch {
+      return "-";
+    }
+  };
+
+  const getRoleBadge = (roleName: string) => {
+    const isAdmin = roleName.toLowerCase().includes("admin");
+    return (
+      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+        isAdmin 
+          ? "bg-red-100 text-red-800" 
+          : "bg-blue-100 text-blue-800"
+      }`}>
+        <Shield className="h-3 w-3 mr-1" />
+        {roleName}
+      </span>
+    );
   };
 
   const SortIndicator = ({ field }: { field: OrderField }) => {
     if (sortConfig.order !== field) return null;
-    return <span className="ml-1">{sortConfig.sort === "asc" ? "↑" : "↓"}</span>;
+    return (
+      <span 
+        className="ml-1" 
+        aria-label={`Sorted ${sortConfig.sort === "asc" ? "ascending" : "descending"}`}
+      >
+        {sortConfig.sort === "asc" ? "↑" : "↓"}
+      </span>
+    );
   };
+
+  // ✅ PERBAIKAN: Logika pagination yang sama dengan client-list
+  const hasNextPage = users.length === pagination.limit;
+  const hasPrevPage = pagination.page > 1;
+  const startItem = (pagination.page - 1) * pagination.limit + 1;
+  const endItem = startItem + users.length - 1;
+
+  // Debug logging
+  console.log('Pagination Debug:', {
+    page: pagination.page,
+    limit: pagination.limit,
+    total: pagination.total,
+    usersLength: users.length,
+    hasNextPage,
+    hasPrevPage
+  });
+
+  // Don't render until client-side hydration is complete
+  if (!isClient) {
+    return (
+      <Card className="mt-5">
+        <CardHeader>
+          <CardTitle>Daftar Pengguna</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-64 w-full" />
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="mt-5">
       <CardHeader>
-        <CardTitle>Daftar Pengguna</CardTitle>
+        <CardTitle className="flex items-center">
+          <Users className="mr-2 h-5 w-5" />
+          Daftar Pengguna
+        </CardTitle>
       </CardHeader>
       <CardContent>
-  
-        
+        {/* Error Alert */}
+        {error && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
 
-        <div className="flex justify-between items-center mb-4 gap-4">
+        {/* Success Alert */}
+        {successMessage && (
+          <Alert className="mb-4 border-green-200 bg-green-50">
+            <AlertCircle className="h-4 w-4 text-green-600" />
+            <AlertDescription className="text-green-800">{successMessage}</AlertDescription>
+          </Alert>
+        )}
+
+        {/* Controls */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
           <input
             type="text"
-            placeholder="Cari pengguna..."
+            placeholder="Cari pengguna berdasarkan nama atau email..."
             value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setPagination(prev => ({ ...prev, page: 1 }));
-            }}
-            className="p-2 border border-gray-300 rounded text-sm w-1/4"
-            />
-          <div className="flex items-center space-x-2 pr-100">
+            onChange={(e) => handleSearchChange(e.target.value)}
+            className="p-2 border border-gray-300 rounded text-sm w-full sm:w-1/3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            aria-label="Cari pengguna"
+          />
+          
+          <div className="flex items-center space-x-2">
             <select
               value={pagination.limit}
-              onChange={(e) => setPagination(prev => ({
-                ...prev,
-                limit: Number(e.target.value),
-                page: 1
-              }))}
-              className="p-2 border border-gray-300 rounded text-sm ml-1"
+              onChange={(e) => handleLimitChange(Number(e.target.value))}
+              className="p-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              aria-label="Jumlah item per halaman"
             >
               <option value={5}>5 per halaman</option>
               <option value={10}>10 per halaman</option>
               <option value={20}>20 per halaman</option>
               <option value={50}>50 per halaman</option>
             </select>
+            
+            <Button
+              onClick={() => router.push("/dashboard/add-user")}
+              className="flex items-center"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Tambah User
+            </Button>
           </div>
-          <Button
-                onClick={() => router.push("/dashboard/add-user")}
-                className="ml-4 hover:bg-gray-400 rounded text-white font-bold py-2 px-4 focus:outline-none focus:shadow-outline flex items-center"
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Tambah User
-              </Button>
         </div>
         
+        {/* Table */}
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead onClick={() => handleSort("name")} className="cursor-pointer hover:bg-gray-100">
+                <TableHead 
+                  onClick={() => handleSort("name")} 
+                  className="cursor-pointer hover:bg-gray-100 select-none"
+                  tabIndex={0}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSort("name")}
+                >
                   Nama <SortIndicator field="name" />
                 </TableHead>
                 <TableHead>Username</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead onClick={() => handleSort("role_name")} className="cursor-pointer hover:bg-gray-100">
+                <TableHead 
+                  onClick={() => handleSort("email")} 
+                  className="cursor-pointer hover:bg-gray-100 select-none"
+                  tabIndex={0}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSort("email")}
+                >
+                  Email <SortIndicator field="email" />
+                </TableHead>
+                <TableHead 
+                  onClick={() => handleSort("role_name")} 
+                  className="cursor-pointer hover:bg-gray-100 select-none"
+                  tabIndex={0}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSort("role_name")}
+                >
                   Role <SortIndicator field="role_name" />
                 </TableHead>
-                <TableHead onClick={() => handleSort("created_date")} className="cursor-pointer hover:bg-gray-100">
+                <TableHead 
+                  onClick={() => handleSort("created_date")} 
+                  className="cursor-pointer hover:bg-gray-100 select-none"
+                  tabIndex={0}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSort("created_date")}
+                >
                   Dibuat Pada <SortIndicator field="created_date" />
                 </TableHead>
                 <TableHead>Diubah Pada</TableHead>
-                <TableHead>Action</TableHead>
+                <TableHead>Aksi</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -349,31 +482,43 @@ export default function UserPage() {
               ) : users.length > 0 ? (
                 users.map((user) => (
                   <TableRow key={user.id}>
-                    <TableCell>{user.name}</TableCell>
-                    <TableCell>{user.username}</TableCell>
-                    <TableCell>{user.email}</TableCell>
-                    <TableCell>{user.role_name}</TableCell>
-                    <TableCell>{formatDate(user.created_date)}</TableCell>
-                    <TableCell>{formatDate(user.modified_date)}</TableCell>
+                    <TableCell className="font-medium">
+                      {user.name}
+                    </TableCell>
+                    <TableCell className="font-mono text-sm">
+                      {user.username}
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      {user.email || "-"}
+                    </TableCell>
+                    <TableCell>
+                      {getRoleBadge(user.role_name)}
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      {formatDateTime(user.created_date)}
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      {formatDateTime(user.modified_date)}
+                    </TableCell>
                     <TableCell>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon">
+                          <Button variant="ghost" size="icon" aria-label={`Menu aksi untuk ${user.name}`}>
                             <MoreVertical className="h-4 w-4" />
-                            <span className="sr-only">Buka menu</span>
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleEdit(user)}>
-                            <Edit className="mr-2 h-4 w-4" />
-                            <span>Edit</span>
+                        <DropdownMenuItem onClick={() => handleEdit(user)}>
+                            <Eye className="mr-2 h-4 w-4" />
+                            <span>Lihat Detail</span>
                           </DropdownMenuItem>
                           <DropdownMenuItem 
                             onClick={() => handleDelete(user)}
                             disabled={deleteLoading === user.id}
+                            className="text-red-600 focus:text-red-600"
                           >
                             <Trash className="mr-2 h-4 w-4" />
-                            <span>{deleteLoading === user.id ? "Menghapus..." : "Delete"}</span>
+                            <span>{deleteLoading === user.id ? "Menghapus..." : "Hapus"}</span>
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -382,62 +527,100 @@ export default function UserPage() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-sm text-gray-500">
-                    {error
-                      ? "Gagal memuat data"
-                      : search
+                  <TableCell colSpan={7} className="text-center text-sm text-gray-500 py-8">
+                    {search
                       ? "Pengguna dengan kata kunci tersebut tidak ditemukan."
                       : "Tidak ada data pengguna ditemukan."}
                   </TableCell>
                 </TableRow>
               )}
             </TableBody>
-
           </Table>
         </div>
 
-        {/* Pagination */}
-        {pagination.total > 0 && (
-          <div className="flex justify-between items-center mt-4">
+        {/* ✅ PERBAIKAN: Pagination dengan desain yang sama dengan client-list */}
+        {users.length > 0 && (
+          <div className="flex flex-col sm:flex-row justify-between items-center mt-4 gap-4">
             <div className="text-sm text-gray-600">
-              Menampilkan {(pagination.page - 1) * pagination.limit + 1} - {Math.min(pagination.page * pagination.limit, pagination.total)} dari {pagination.total} pengguna
+              Halaman {pagination.page} - Menampilkan {startItem} - {endItem} pengguna
             </div>
-            <div className="flex space-x-2">
-              <button onClick={() => handlePageChange(1)} disabled={pagination.page === 1} className="px-3 py-1 border rounded disabled:opacity-50">&lt;&lt;</button>
-              <button onClick={() => handlePageChange(pagination.page - 1)} disabled={pagination.page === 1} className="px-3 py-1 border rounded disabled:opacity-50">&lt;</button>
-              {Array.from({ length: Math.min(5, Math.ceil(pagination.total / pagination.limit)) }, (_, i) => {
-                let pageNum;
-                const totalPages = Math.ceil(pagination.total / pagination.limit);
-                if (totalPages <= 5) {
-                  pageNum = i + 1;
-                } else if (pagination.page <= 3) {
-                  pageNum = i + 1;
-                } else if (pagination.page >= totalPages - 2) {
-                  pageNum = totalPages - 4 + i;
-                } else {
-                  pageNum = pagination.page - 2 + i;
-                }
-                return (
-                  <button
-                    key={pageNum}
-                    onClick={() => handlePageChange(pageNum)}
-                    className={`px-3 py-1 border rounded ${pagination.page === pageNum ? 'bg-blue-500 text-white' : ''}`}
-                  >
-                    {pageNum}
-                  </button>
-                );
-              })}
-              <button onClick={() => handlePageChange(pagination.page + 1)} disabled={pagination.page >= Math.ceil(pagination.total / pagination.limit)} className="px-3 py-1 border rounded disabled:opacity-50">&gt;</button>
-              <button onClick={() => handlePageChange(Math.ceil(pagination.total / pagination.limit))} disabled={pagination.page >= Math.ceil(pagination.total / pagination.limit)} className="px-3 py-1 border rounded disabled:opacity-50">&gt;&gt;</button>
+            <div className="flex space-x-1">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handlePageChange(1)}
+                disabled={!hasPrevPage}
+                aria-label="Halaman pertama"
+              >
+                ≪
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handlePageChange(pagination.page - 1)}
+                disabled={!hasPrevPage}
+                aria-label="Halaman sebelumnya"
+              >
+                ‹
+              </Button>
+              
+              {/* Tampilkan nomor halaman saat ini */}
+              <Button
+                variant="default"
+                size="sm"
+                aria-current="page"
+              >
+                {pagination.page}
+              </Button>
+              
+              {/* Tampilkan halaman selanjutnya jika ada */}
+              {hasNextPage && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePageChange(pagination.page + 1)}
+                  aria-label={`Halaman ${pagination.page + 1}`}
+                >
+                  {pagination.page + 1}
+                </Button>
+              )}
+              
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handlePageChange(pagination.page + 1)}
+                disabled={!hasNextPage}
+                aria-label="Halaman selanjutnya"
+              >
+                ›
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handlePageChange(pagination.page + 1)}
+                disabled={!hasNextPage}
+                aria-label="Halaman terakhir"
+              >
+                ≫
+              </Button>
             </div>
           </div>
         )}
+
+        {/* Delete Confirmation Modal */}
         {deleteConfirmation.show && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div 
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-title"
+          >
             <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full mx-4">
-              <h3 className="text-lg font-semibold mb-4">Konfirmasi Hapus User</h3>
+              <h3 id="delete-title" className="text-lg font-semibold mb-4">
+                Konfirmasi Hapus Pengguna
+              </h3>
               <p className="text-gray-600 mb-6">
-                Apakah Anda yakin ingin menghapus user{" "}
+                Apakah Anda yakin ingin menghapus pengguna{" "}
                 <strong>{deleteConfirmation.user?.name}</strong>?
                 <br />
                 <span className="text-red-500 text-sm">

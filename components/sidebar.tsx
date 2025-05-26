@@ -32,7 +32,7 @@ export default function Sidebar() {
   };
 
   const menuItems = [
-    { label: "Dashboard", href: "/" },
+    { label: "Dashboard", href: "/dashboard" },
     {
       label: "Pengguna",
       children: [{ label: "Manajemen Pengguna", href: "/dashboard/user-page" }],

@@ -1,188 +1,526 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { useRouter, useParams, useSearchParams } from "next/navigation";
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { useEffect, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import {
+  Card, CardContent, CardHeader, CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertCircle, ArrowLeft, Save, User } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { jwtDecode } from 'jwt-decode';
 
-// Define client type interface
-interface Client {
+interface DecodedToken {
   id: string;
+  username: string;
+  email: string;
+  role: string;
+  exp: number;
+  // tambahkan properti lain sesuai kebutuhan
+}
+
+
+type ClientType = {
+  id: number;
   name: string;
-  client_type: string;
+};
+
+type FormData = {
+  name: string;
+  client_type_id: number;
   address: string;
   whatsapp_number: string;
   email: string;
-  status: string;
-}
+  modified_by: string;
+};
 
-export default function EditClientPage() {
-  const router = useRouter();
+type FormErrors = {
+  name?: string;
+  client_type_id?: string;
+  email?: string;
+  whatsapp_number?: string;
+};
+
+// Custom hook for token management and user info
+const useAuth = () => {
+  const [token, setToken] = useState<string | null>(null);
+  const [username, setUsername] = useState<string>("");
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+    if (typeof window !== 'undefined') {
+      const storedToken = localStorage.getItem("token");
+      setToken(storedToken);
+      
+      // Extract username from token (you might need to decode JWT properly)
+      if (storedToken) {
+        try {
+          // For now, we'll use a simple approach - you should implement proper JWT decoding
+          const tokenParts = storedToken.split('.');
+          if (tokenParts.length === 3) {
+            const decoded = jwtDecode<DecodedToken>(storedToken);
+            if (decoded.username) {
+              setUsername(decoded.username);
+            }
+          }
+        } catch (error) {
+          console.error("Error decoding token:", error);
+          setUsername("Unknown User");
+        }
+      }
+    }
+  }, []);
+
+  return { token, username, isClient };
+};
+
+export default function EditClient() {
   const params = useParams();
-  const searchParams = useSearchParams();
+  const router = useRouter();
   const clientId = params.id as string;
-
+  
+  const [clientTypes, setClientTypes] = useState<ClientType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [client, setClient] = useState<Client>({
-    id: clientId,
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+  const [formErrors, setFormErrors] = useState<FormErrors>({});
+
+  const { token, username, isClient } = useAuth();
+  
+  const [formData, setFormData] = useState<FormData>({
     name: "",
-    client_type: "",
+    client_type_id: 0,
     address: "",
     whatsapp_number: "",
     email: "",
-    status: ""
+    modified_by: username,
   });
 
+  // Update modified_by when username changes
   useEffect(() => {
-    const timeout = setTimeout(() => {
-      setClient({
-        id: clientId,
-        name: searchParams.get("name") || "",
-        client_type: searchParams.get("type") || "",
-        address: searchParams.get("address") || "",
-        whatsapp_number: searchParams.get("whatsapp") || "",
-        email: searchParams.get("email") || "",
-        status: searchParams.get("status") || ""
+    setFormData(prev => ({
+      ...prev,
+      modified_by: username
+    }));
+  }, [username]);
+
+  const clearMessages = () => {
+    setError("");
+    setSuccessMessage("");
+    setFormErrors({});
+  };
+
+  const handleApiError = (response: Response, defaultMessage: string): string => {
+    const statusMessages: Record<number, string> = {
+      401: "Sesi telah berakhir, silakan login kembali",
+      403: "Anda tidak memiliki izin untuk mengakses resource ini",
+      404: "Klien tidak ditemukan",
+      422: "Data yang dikirim tidak valid",
+      500: "Terjadi kesalahan pada server. Silakan coba lagi atau hubungi administrator",
+      502: "Server sedang tidak dapat diakses. Silakan coba lagi dalam beberapa menit"
+    };
+
+    return statusMessages[response.status] || `${defaultMessage} (status: ${response.status})`;
+  };
+
+  // Fetch client types (you might need to create this API endpoint)
+  const fetchClientTypes = async () => {
+    if (!token) return;
+
+    try {
+      const response = await fetch("/api/client_types", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "X-Api-Key": "X-Secret-Key",
+          "Content-Type": "application/json",
+        },
       });
+
+      if (response.ok) {
+        const json = await response.json();
+        if (json.code === 200 && json.data) {
+          setClientTypes(json.data);
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching client types:", error);
+      // Set default client types if API fails
+      setClientTypes([
+        { id: 1, name: "Personal" },
+        { id: 2, name: "Corporate" }
+      ]);
+    }
+  };
+
+  // Fetch client data
+  const fetchClient = async () => {
+    if (!token || !clientId) return;
+
+    setIsLoading(true);
+    clearMessages();
+
+    try {
+      const response = await fetch(`/api/clients/id/${clientId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "X-Api-Key": "X-Secret-Key",
+          "Content-Type": "application/json",
+        },
+      });
+      console.log(response)
+      if (!response.ok) {
+        const errorMessage = handleApiError(response, "Gagal memuat data klien");
+        setError(errorMessage);
+        return;
+      }
+
+      const json = await response.json();
+      if (json.code === 200 && json.data) {
+        const clientData = json.data;
+        console.log(clientData)
+        
+        // Populate form with existing client data
+        setFormData({
+          name: clientData.name || "",
+          client_type_id: clientData.client_type_id || 0,
+          address: clientData.address || "",
+          whatsapp_number: clientData.whatsapp_number || "",
+          email: clientData.email || "",
+          modified_by: username,
+        });
+      } else {
+        setError(json.message || "Gagal memuat data klien");
+      }
+    } catch (error) {
+      console.error("Error fetching client:", error);
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        setError("Tidak dapat terhubung ke server. Periksa koneksi internet Anda");
+      } else {
+        setError(error instanceof Error ? error.message : "Gagal memuat data klien");
+      }
+    } finally {
       setIsLoading(false);
-    }, 500); // Simulasi loading selama 500ms
-
-    return () => clearTimeout(timeout);
-  }, [clientId, searchParams]);
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
-    const { name, value } = e.target;
-    setClient(prev => ({ ...prev, [name]: value }));
+    }
   };
 
-  const handleSelectChange = (value: string, field: keyof Client): void => {
-    setClient(prev => ({ ...prev, [field]: value }));
+  useEffect(() => {
+    if (!isClient || !token) return;
+    
+    fetchClientTypes();
+    fetchClient();
+  }, [isClient, token, clientId, username]);
+
+  const validateForm = (): boolean => {
+    const errors: FormErrors = {};
+
+    if (!formData.name.trim()) {
+      errors.name = "Nama klien wajib diisi";
+    }
+
+    if (!formData.client_type_id || formData.client_type_id === 0) {
+      errors.client_type_id = "Tipe klien wajib dipilih";
+    }
+
+    if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      errors.email = "Format email tidak valid";
+    }
+
+    if (formData.whatsapp_number && !/^[0-9+\-\s()]+$/.test(formData.whatsapp_number)) {
+      errors.whatsapp_number = "Format nomor WhatsApp tidak valid";
+    }
+
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>): void => {
+  const handleInputChange = (field: keyof FormData, value: string | number) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+    
+    // Clear specific field error when user starts typing
+    if (formErrors[field as keyof FormErrors]) {
+      setFormErrors(prev => ({
+        ...prev,
+        [field]: undefined
+      }));
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Saving updated client:", client);
-    router.push("/clients");
+    
+    if (!validateForm()) {
+      return;
+    }
+
+    setIsSubmitting(true);
+    clearMessages();
+
+    try {
+      const response = await fetch(`/api/clients/id/${clientId}`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "X-Api-Key": "X-Secret-Key",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
+      });
+      console.log(response)
+
+      if (!response.ok) {
+        const errorMessage = handleApiError(response, "Gagal mengupdate klien");
+        setError(errorMessage);
+        return;
+      }
+
+      const json = await response.json();
+      
+      if (json.code === 200) {
+        setSuccessMessage("Klien berhasil diupdate!");
+        
+        // Redirect to client list after 2 seconds
+        setTimeout(() => {
+          router.push("/dashboard/client-page");
+        }, 2000);
+      } else {
+        throw new Error(json.message || "Gagal mengupdate klien");
+      }
+
+    } catch (error) {
+      console.error("Error updating client:", error);
+      
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        setError("Tidak dapat terhubung ke server. Periksa koneksi internet Anda");
+      } else {
+        setError(error instanceof Error ? error.message : "Terjadi kesalahan saat mengupdate klien");
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
   };
+
+  const handleBack = () => {
+    router.push("/dashboard/client-page");
+  };
+
+  // Don't render until client-side hydration is complete
+  if (!isClient) {
+    return (
+      <Card className="mt-5">
+        <CardHeader>
+          <CardTitle>Edit Klien</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-32 w-full" />
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <Card className="mt-5">
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <User className="mr-2 h-5 w-5" />
+            Edit Klien
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-20 w-full" />
+            <Skeleton className="h-10 w-32" />
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
-    <div className="flex min-h-screen">
-      <main className="flex-1 p-10">
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              {isLoading ? <Skeleton className="h-6 w-40" /> : `Edit Client ${client.name}`}
-            </CardTitle>
-          </CardHeader>
-          {isLoading ? (
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {Array.from({ length: 6 }).map((_, i) => (
-                  <div className="space-y-2" key={i}>
-                    <Skeleton className="h-4 w-24" />
-                    <Skeleton className="h-10 w-full" />
-                  </div>
+    <Card className="mt-5">
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <CardTitle className="flex items-center">
+            <User className="mr-2 h-5 w-5" />
+            Edit Klien
+          </CardTitle>
+          <Button
+            variant="outline"
+            onClick={handleBack}
+            className="flex items-center"
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Kembali
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {/* Error Alert */}
+        {error && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
+        {/* Success Alert */}
+        {successMessage && (
+          <Alert className="mb-4 border-green-200 bg-green-50">
+            <AlertCircle className="h-4 w-4 text-green-600" />
+            <AlertDescription className="text-green-800">{successMessage}</AlertDescription>
+          </Alert>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Name Field */}
+          <div className="space-y-2">
+            <label htmlFor="name" className="text-sm font-medium text-gray-700">
+              Nama Klien <span className="text-red-500">*</span>
+            </label>
+            <input
+              id="name"
+              type="text"
+              value={formData.name}
+              onChange={(e) => handleInputChange("name", e.target.value)}
+              className={`w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                formErrors.name ? "border-red-500" : "border-gray-300"
+              }`}
+              placeholder="Masukkan nama klien"
+              disabled={isSubmitting}
+            />
+            {formErrors.name && (
+              <p className="text-red-500 text-sm">{formErrors.name}</p>
+            )}
+          </div>
+
+          {/* Client Type Field */}
+          <div className="space-y-2">
+            <label htmlFor="client_type_id" className="text-sm font-medium text-gray-700">
+              Tipe Klien <span className="text-red-500">*</span>
+            </label>
+            <div className="relative">
+              <select
+                id="client_type_id"
+                value={formData.client_type_id}
+                onChange={(e) => handleInputChange("client_type_id", parseInt(e.target.value))}
+                className={`w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none bg-white ${
+                  formErrors.client_type_id ? "border-red-500" : "border-gray-300"
+                }`}
+                disabled={isSubmitting}
+              >
+                <option value={0}>Pilih tipe klien</option>
+                {clientTypes.map((type) => (
+                  <option key={type.id} value={type.id}>
+                    {type.id === 1 ? "👤" : "🏢"} {type.name}
+                  </option>
                 ))}
-              </div>
-            </CardContent>
-          ) : (
-            <form onSubmit={handleSubmit}>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="name">Nama Client</Label>
-                    <Input
-                      id="name"
-                      name="name"
-                      value={client.name}
-                      onChange={handleChange}
-                      placeholder="Masukkan nama client"
-                      required
-                    />
-                  </div>
+              </select>
+            </div>
+            {formErrors.client_type_id && (
+              <p className="text-red-500 text-sm">{formErrors.client_type_id}</p>
+            )}
+          </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="client_type">Tipe Client</Label>
-                    <Select
-                      value={client.client_type}
-                      onValueChange={(value) => handleSelectChange(value, "client_type")}
-                    >
-                      <SelectTrigger id="client_type">
-                        <SelectValue placeholder="Pilih tipe client" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Perusahaan">Perusahaan</SelectItem>
-                        <SelectItem value="Individu">Individu</SelectItem>
-                        <SelectItem value="Lainnya">Lainnya</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+          {/* Email Field */}
+          <div className="space-y-2">
+            <label htmlFor="email" className="text-sm font-medium text-gray-700">
+              Email
+            </label>
+            <input
+              id="email"
+              type="email"
+              value={formData.email}
+              onChange={(e) => handleInputChange("email", e.target.value)}
+              className={`w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                formErrors.email ? "border-red-500" : "border-gray-300"
+              }`}
+              placeholder="contoh@email.com"
+              disabled={isSubmitting}
+            />
+            {formErrors.email && (
+              <p className="text-red-500 text-sm">{formErrors.email}</p>
+            )}
+          </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="address">Alamat</Label>
-                    <Input
-                      id="address"
-                      name="address"
-                      value={client.address}
-                      onChange={handleChange}
-                      placeholder="Masukkan alamat"
-                    />
-                  </div>
+          {/* WhatsApp Number Field */}
+          <div className="space-y-2">
+            <label htmlFor="whatsapp_number" className="text-sm font-medium text-gray-700">
+              Nomor WhatsApp
+            </label>
+            <input
+              id="whatsapp_number"
+              type="tel"
+              value={formData.whatsapp_number}
+              onChange={(e) => handleInputChange("whatsapp_number", e.target.value)}
+              className={`w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                formErrors.whatsapp_number ? "border-red-500" : "border-gray-300"
+              }`}
+              placeholder="081234567890"
+              disabled={isSubmitting}
+            />
+            {formErrors.whatsapp_number && (
+              <p className="text-red-500 text-sm">{formErrors.whatsapp_number}</p>
+            )}
+          </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="whatsapp_number">Nomor WhatsApp</Label>
-                    <Input
-                      id="whatsapp_number"
-                      name="whatsapp_number"
-                      value={client.whatsapp_number}
-                      onChange={handleChange}
-                      placeholder="Masukkan nomor WhatsApp"
-                    />
-                  </div>
+          {/* Address Field */}
+          <div className="space-y-2">
+            <label htmlFor="address" className="text-sm font-medium text-gray-700">
+              Alamat
+            </label>
+            <textarea
+              id="address"
+              value={formData.address}
+              onChange={(e) => handleInputChange("address", e.target.value)}
+              rows={4}
+              className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-vertical"
+              placeholder="Masukkan alamat lengkap"
+              disabled={isSubmitting}
+            />
+          </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
-                    <Input
-                      id="email"
-                      name="email"
-                      type="email"
-                      value={client.email}
-                      onChange={handleChange}
-                      placeholder="Masukkan email"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="status">Status</Label>
-                    <Select
-                      value={client.status}
-                      onValueChange={(value) => handleSelectChange(value, "status")}
-                    >
-                      <SelectTrigger id="status">
-                        <SelectValue placeholder="Pilih status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Aktif">Aktif</SelectItem>
-                        <SelectItem value="Tidak Aktif">Tidak Aktif</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              </CardContent>
-              <CardFooter className="flex justify-between">
-                <Button type="button" variant="outline" onClick={() => router.back()}>
-                  Batal
-                </Button>
-                <Button type="submit">Simpan Perubahan</Button>
-              </CardFooter>
-            </form>
-          )}
-        </Card>
-      </main>
-    </div>
+          {/* Submit Button */}
+          <div className="flex justify-end space-x-3">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleBack}
+              disabled={isSubmitting}
+            >
+              Batal
+            </Button>
+            <Button
+              type="submit"
+              disabled={isSubmitting}
+              className="flex items-center"
+            >
+              {isSubmitting ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Menyimpan...
+                </>
+              ) : (
+                <>
+                  <Save className="mr-2 h-4 w-4" />
+                  Simpan Perubahan
+                </>
+              )}
+            </Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
   );
 }

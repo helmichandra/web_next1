@@ -20,6 +20,18 @@ const nextConfig: NextConfig = {
         source: '/api/users/id/:id',
         destination: 'http://202.74.74.4:3000/api/users/id/:id',
       },
+      {
+        source: '/api/clients',
+        destination: 'http://202.74.74.4:3000/api/clients',
+      },
+      {
+        source: '/api/clients/id/:client_id',
+        destination: 'http://202.74.74.4:3000/api/clients/id/:client_id',
+      },
+      {
+        source: '/api/client_types',
+        destination: 'http://202.74.74.4:3000/api/client_types',
+      },
     ]
   },
 };

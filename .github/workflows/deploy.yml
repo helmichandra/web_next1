@@ -1,0 +1,39 @@
+name: Deploy Next.js to VPS
+
+on:
+  push:
+    branches:
+      - main   # sesuaikan dengan branch yang kamu pakai
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build project
+        run: npm run build
+
+      - name: Deploy to VPS via SSH
+        uses: appleboy/ssh-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_SSH_PORT }}
+          script: |
+            cd /path/to/your/project/on/vps
+            git pull
+            npm install
+            npm run build
+            pm2 restart resolusiweb-fe

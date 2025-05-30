@@ -416,7 +416,7 @@ export default function UserPage() {
             
             <Button
               onClick={() => router.push("/dashboard/add-user")}
-              className="flex items-center"
+              className="flex items-center bg-teal-600 hover:bg-teal-700"
             >
               <Plus className="mr-2 h-4 w-4" />
               Tambah User

@@ -32,6 +32,26 @@ const nextConfig: NextConfig = {
         source: '/api/client_types',
         destination: 'http://202.74.74.4:3000/api/client_types',
       },
+      {
+        source: '/api/client_types/id/:client_type_id',
+        destination: 'http://202.74.74.4:3000/api/client_types/id/:client_type_id',
+      },
+      {
+        source: '/api/client_statuses',
+        destination: 'http://202.74.74.4:3000/api/client_statuses',
+      },
+      {
+        source: '/api/client_statuses/id/:client_status_id',
+        destination: 'http://202.74.74.4:3000/api/client_statuses/id/:client_status_id',
+      },
+      {
+        source: '/api/service_types',
+        destination: 'http://202.74.74.4:3000/api/service_types',
+      },
+      {
+        source: '/api/service_types/id/:service_type_id',
+        destination: 'http://202.74.74.4:3000/api/service_types/id/:service_type_id',
+      },
     ]
   },
 };

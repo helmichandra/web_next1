@@ -15,13 +15,18 @@ import {
   FileText,
   Database,
   LogOut,
-  ChevronLeft,
-  ChevronRight
+  Menu,
+  X
 } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import Cookies from "js-cookie";
+import Image from 'next/image';
 
-export default function Sidebar() {
+interface SidebarProps {
+  onMinimizeChange?: (isMinimized: boolean) => void;
+}
+
+export default function Sidebar({ onMinimizeChange }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [search, setSearch] = useState("");
@@ -38,7 +43,7 @@ export default function Sidebar() {
   };
 
   const toggleMenu = (label: string) => {
-    if (isMinimized) return; // Prevent toggle when minimized
+    if (isMinimized) return;
     setOpenMenus((prev) => ({
       ...prev,
       [label]: !prev[label],
@@ -46,16 +51,18 @@ export default function Sidebar() {
   };
 
   const toggleSidebar = () => {
-    setIsMinimized(!isMinimized);
-    // Close all menus when minimizing
-    if (!isMinimized) {
-      setOpenMenus({});
-    } else {
-      // Restore default open menus when expanding
+    const newMinimizedState = !isMinimized;
+    setIsMinimized(newMinimizedState);
+    
+    onMinimizeChange?.(newMinimizedState);
+    
+    if (!newMinimizedState) {
       setOpenMenus({
         Pengguna: true,
         Klien: true,
       });
+    } else {
+      setOpenMenus({});
     }
   };
 
@@ -105,7 +112,7 @@ export default function Sidebar() {
     },
     { 
       label: "Master Data", 
-      href: "#",
+      href: "/dashboard/master-list/master-page",
       icon: Database
     },
     { 
@@ -116,7 +123,7 @@ export default function Sidebar() {
   ];
 
   const filteredItems = menuItems.filter((item) => {
-    if (isMinimized) return true; // Show all items when minimized (only icons)
+    if (isMinimized) return true;
     const matchLabel = item.label.toLowerCase().includes(search.toLowerCase());
     const matchChild = item.children?.some((child) =>
       child.label.toLowerCase().includes(search.toLowerCase())
@@ -125,188 +132,229 @@ export default function Sidebar() {
   });
 
   return (
-    <>
-      {/* Sidebar */}
-      <aside 
-        className={`fixed top-0 left-0 h-full bg-white border-r border-gray-200 shadow-lg z-40 transform transition-all duration-300 ease-in-out flex flex-col ${
-          isMinimized ? 'w-16' : 'w-72'
-        }`}
-      >
-        {/* Header */}
-        <div className={`border-b border-gray-100 transition-all duration-300 ${
-          isMinimized ? 'p-2' : 'p-6'
-        }`}>
-          {/* Minimize/Expand Button */}
-          <div className={`flex ${isMinimized ? 'justify-center mb-4' : 'justify-between items-center mb-4'}`}>
-            {!isMinimized && <h2 className="text-xl font-bold text-gray-900">Menu</h2>}
-            <button
-              onClick={toggleSidebar}
-              className="p-2 rounded-lg hover:bg-gray-100 transition-colors duration-200 flex items-center space-x-2 text-sm text-gray-600"
-              title={isMinimized ? "Expand menu" : "Minimize menu"}
-            >
-              {isMinimized ? (
-                <ChevronRight className="w-4 h-4" />
-              ) : (
-                <>
-                  <ChevronLeft className="w-4 h-4" />
-                  <span>Minimize menu</span>
-                </>
-              )}
-            </button>
-          </div>
-          
-          {/* Search Bar - Hidden when minimized */}
-          {!isMinimized && (
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <input
-                type="text"
-                placeholder="Cari menu..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50"
+    <aside 
+      className={`fixed top-0 left-0 h-full bg-white/95 backdrop-blur-sm border-r border-gray-200/60 z-40 
+        transform transition-all duration-300 ease-in-out flex flex-col shadow-xl
+        ${isMinimized ? 'w-16' : 'w-72'}`}
+    >
+      {/* Header */}
+      <div className={`flex items-center justify-between p-4 border-b border-gray-100
+        ${isMinimized ? 'px-2' : 'px-6'}`}>
+        {/* Logo */}
+        <div className={`flex items-center transition-all duration-300 
+          ${isMinimized ? 'justify-center w-full' : ''}`}>
+          {isMinimized ? (
+            <div className="bg-[#049c94] p-1.5 rounded-lg shadow-sm">
+              <div className="w-6 h-6 bg-white rounded flex items-center justify-center">
+                <span className="text-[#049c94] text-xs font-bold">R</span>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-[#049c94] p-2 rounded-lg shadow-sm">
+              <Image 
+                src="/media/brand-logos/logo.webp" 
+                alt="ResolusiWeb" 
+                width={120} 
+                height={32} 
+                className="object-contain"
+                priority
               />
             </div>
           )}
         </div>
 
-        {/* Navigation */}
-        <nav className="flex-1 p-2 space-y-1 overflow-y-auto">
-          {filteredItems.map((item, index) => {
-            const Icon = item.icon;
-            
-            if (item.children && !isMinimized) {
-              const isOpen = openMenus[item.label];
-              const filteredChildren = item.children.filter((child) =>
-                child.label.toLowerCase().includes(search.toLowerCase())
-              );
+        {!isMinimized && (
+          <button
+            onClick={toggleSidebar}
+            className="p-2 rounded-lg hover:bg-gray-100 transition-colors duration-200"
+            title="Minimize sidebar"
+          >
+            <X className="w-4 h-4 text-gray-500" />
+          </button>
+        )}
+      </div>
+      
+      {/* Search Bar */}
+      {!isMinimized && (
+        <div className="p-4 border-b border-gray-100">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <input
+              type="text"
+              placeholder="Cari menu..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border-0 rounded-xl text-sm 
+                focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:bg-white
+                placeholder-gray-400 transition-all duration-200"
+            />
+          </div>
+        </div>
+      )}
 
-              if (!item.label.toLowerCase().includes(search.toLowerCase()) && filteredChildren.length === 0) {
-                return null;
-              }
+      {/* Toggle Button for Minimized State */}
+      {isMinimized && (
+        <div className="p-2 border-b border-gray-100">
+          <button
+            onClick={toggleSidebar}
+            className="w-full p-2 rounded-lg hover:bg-gray-100 transition-colors duration-200 
+              flex items-center justify-center"
+            title="Expand sidebar"
+          >
+            <Menu className="w-4 h-4 text-gray-500" />
+          </button>
+        </div>
+      )}
 
-              return (
-                <div key={index} className="space-y-1">
-                  <button
-                    onClick={() => toggleMenu(item.label)}
-                    className="w-full flex items-center justify-between px-3 py-2.5 text-sm font-medium text-gray-700 rounded-lg hover:bg-gray-50 hover:text-gray-900 transition-all duration-200"
-                  >
-                    <div className="flex items-center space-x-3">
-                      <Icon className="w-5 h-5" />
-                      <span>{item.label}</span>
-                    </div>
-                    {isOpen ? (
-                      <ChevronUp className="w-4 h-4 text-gray-400" />
-                    ) : (
-                      <ChevronDown className="w-4 h-4 text-gray-400" />
-                    )}
-                  </button>
-                  
-                  {isOpen && filteredChildren.length > 0 && (
-                    <div className="ml-8 space-y-1">
-                      {filteredChildren.map((child, cIdx) => {
-                        const ChildIcon = child.icon;
-                        return (
-                          <Link href={child.href} key={cIdx}>
-                            <div
-                              className={`flex items-center space-x-3 px-3 py-2 text-sm rounded-lg transition-all duration-200 ${
-                                pathname === child.href
-                                  ? "bg-blue-50 text-blue-700 font-medium border-l-2 border-blue-500"
-                                  : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-                              }`}
-                            >
-                              <ChildIcon className="w-4 h-4" />
-                              <span>{child.label}</span>
-                            </div>
-                          </Link>
-                        );
-                      })}
-                    </div>
+      {/* Navigation */}
+      <nav className="flex-1 p-3 space-y-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300">
+        {filteredItems.map((item, index) => {
+          const Icon = item.icon;
+          
+          if (item.children && !isMinimized) {
+            const isOpen = openMenus[item.label];
+            const filteredChildren = item.children.filter((child) =>
+              child.label.toLowerCase().includes(search.toLowerCase())
+            );
+
+            if (!item.label.toLowerCase().includes(search.toLowerCase()) && filteredChildren.length === 0) {
+              return null;
+            }
+
+            return (
+              <div key={index} className="space-y-1">
+                <button
+                  onClick={() => toggleMenu(item.label)}
+                  className="w-full flex items-center justify-between px-3 py-3 text-sm font-medium 
+                    text-gray-700 rounded-xl hover:bg-gray-50 hover:text-gray-900 
+                    transition-all duration-200 group"
+                >
+                  <div className="flex items-center space-x-3">
+                    <Icon className="w-5 h-5 text-gray-500 group-hover:text-gray-700" />
+                    <span>{item.label}</span>
+                  </div>
+                  {isOpen ? (
+                    <ChevronUp className="w-4 h-4 text-gray-400" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4 text-gray-400" />
                   )}
+                </button>
+                
+                {isOpen && filteredChildren.length > 0 && (
+                  <div className="ml-6 space-y-1 border-l-2 border-gray-100 pl-4">
+                    {filteredChildren.map((child, cIdx) => {
+                      const ChildIcon = child.icon;
+                      return (
+                        <Link href={child.href} key={cIdx}>
+                          <div
+                            className={`flex items-center space-x-3 px-3 py-2.5 text-sm rounded-lg 
+                              transition-all duration-200 group ${
+                              pathname === child.href
+                                ? "bg-gradient-to-r from-blue-50 to-blue-50/50 text-blue-700 font-medium shadow-sm"
+                                : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                            }`}
+                          >
+                            <ChildIcon className={`w-4 h-4 ${
+                              pathname === child.href ? 'text-blue-600' : 'text-gray-400 group-hover:text-gray-600'
+                            }`} />
+                            <span>{child.label}</span>
+                          </div>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          }
+
+          if (isMinimized) {
+            if (item.children) {
+              return (
+                <div
+                  key={index}
+                  className="flex justify-center p-3 text-gray-500 hover:bg-gray-50 hover:text-gray-700
+                    rounded-xl transition-all duration-200 cursor-pointer group"
+                  title={item.label}
+                >
+                  <Icon className="w-5 h-5" />
                 </div>
               );
             }
 
-            // Minimized view or items with children in minimized state
-            if (isMinimized) {
-              if (item.children) {
-                // For parent items with children in minimized state, show only icon
-                return (
-                  <div
-                    key={index}
-                    className="flex justify-center p-3 text-gray-700 hover:bg-gray-50 rounded-lg transition-all duration-200 cursor-pointer"
-                    title={item.label}
-                  >
-                    <Icon className="w-5 h-5" />
-                  </div>
-                );
-              }
-
-              if (item.onClick) {
-                return (
-                  <button
-                    key={index}
-                    onClick={item.onClick}
-                    className="w-full flex justify-center p-3 text-gray-700 hover:bg-red-50 hover:text-red-700 rounded-lg transition-all duration-200"
-                    title={item.label}
-                  >
-                    <Icon className="w-5 h-5" />
-                  </button>
-                );
-              }
-
-              return (
-                <Link href={item.href} key={index}>
-                  <div
-                    className={`flex justify-center p-3 rounded-lg transition-all duration-200 ${
-                      pathname === item.href
-                        ? "bg-blue-50 text-blue-700 border-l-2 border-blue-500"
-                        : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
-                    }`}
-                    title={item.label}
-                  >
-                    <Icon className="w-5 h-5" />
-                  </div>
-                </Link>
-              );
-            }
-
-            // Full view for regular items
             if (item.onClick) {
               return (
                 <button
                   key={index}
                   onClick={item.onClick}
-                  className="w-full flex items-center space-x-3 px-3 py-2.5 text-sm font-medium text-gray-700 rounded-lg hover:bg-red-50 hover:text-red-700 transition-all duration-200"
+                  className="w-full flex justify-center p-3 text-gray-500 hover:bg-red-50 
+                    hover:text-red-600 rounded-xl transition-all duration-200 group"
+                  title={item.label}
                 >
                   <Icon className="w-5 h-5" />
-                  <span>{item.label}</span>
                 </button>
               );
             }
 
             return (
-              <Link href={item.href || "#"} key={index}>
+              <Link href={item.href} key={index}>
                 <div
-                  className={`flex items-center space-x-3 px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ${
+                  className={`flex justify-center p-3 rounded-xl transition-all duration-200 group ${
                     pathname === item.href
-                      ? "bg-blue-50 text-blue-700 border-l-2 border-blue-500"
-                      : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
+                      ? "bg-gradient-to-r from-blue-50 to-blue-50/50 text-blue-600 shadow-sm"
+                      : "text-gray-500 hover:bg-gray-50 hover:text-gray-700"
                   }`}
+                  title={item.label}
                 >
                   <Icon className="w-5 h-5" />
-                  <span>{item.label}</span>
                 </div>
               </Link>
             );
-          })}
-        </nav>
-      </aside>
+          }
 
-      {/* Main content offset */}
-      <div className={`transition-all duration-300 ${isMinimized ? 'ml-16' : 'ml-72'}`}>
-        {/* Your main content goes here */}
+          if (item.onClick) {
+            return (
+              <button
+                key={index}
+                onClick={item.onClick}
+                className="w-full flex items-center space-x-3 px-3 py-3 text-sm font-medium 
+                  text-gray-700 rounded-xl hover:bg-red-50 hover:text-red-600 
+                  transition-all duration-200 group"
+              >
+                <Icon className="w-5 h-5 text-gray-500 group-hover:text-red-500" />
+                <span>{item.label}</span>
+              </button>
+            );
+          }
+
+          return (
+            <Link href={item.href || "#"} key={index}>
+              <div
+                className={`flex items-center space-x-3 px-3 py-3 text-sm font-medium 
+                  rounded-xl transition-all duration-200 group ${
+                  pathname === item.href
+                    ? "bg-gradient-to-r from-blue-50 to-blue-50/50 text-blue-700 shadow-sm"
+                    : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
+                }`}
+              >
+                <Icon className={`w-5 h-5 ${
+                  pathname === item.href 
+                    ? 'text-blue-600' 
+                    : 'text-gray-500 group-hover:text-gray-700'
+                }`} />
+                <span>{item.label}</span>
+              </div>
+            </Link>
+          );
+        })}
+      </nav>
+
+      {/* Footer */}
+      <div className={`p-4 border-t border-gray-100 ${isMinimized ? 'px-2' : ''}`}>
+        <div className={`text-xs text-gray-400 ${isMinimized ? 'text-center' : ''}`}>
+          {isMinimized ? 'v1.0' : '© 2025 ResolusiWeb v1.0'}
+        </div>
       </div>
-    </>
+    </aside>
   );
 }

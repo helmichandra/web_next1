@@ -18,7 +18,7 @@ export default function ChangePasswordForm() {
     <div className="flex flex-col items-center justify-center min-h-screen bg-white-50">
       {/* Logo positioned above the form */}
       <div className="mb-6">
-        <div className="bg-[#0c4b9e] p-2 rounded-md">
+        <div className="bg-[#049c94] p-2 rounded-md">
           <Image 
             src="/media/brand-logos/logo.webp" 
             alt="App Logo" 

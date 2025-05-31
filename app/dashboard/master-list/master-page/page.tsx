@@ -75,10 +75,20 @@ type DeleteConfirmation = {
 
 // API Response structure
 type ApiResponse<T> = {
-  code: number;
-  status: string;
-  data: T[];
-};
+    code: number;
+    status: string;
+    data: {
+      data: T[];
+      pagination: {
+        search: string;
+        page: number;
+        limit: number;
+        order_by: string;
+        sort_by: string;
+        offset: number;
+      };
+    };
+  };
 
 // Custom hook for token management
 const useAuthToken = () => {
@@ -122,7 +132,7 @@ export default function MasterPage() {
 
   const [sortConfig, setSortConfig] = useState<SortConfig>({
     order: "created_date",
-    sort: "desc"
+    sort: "desc" 
   });
 
   const { token, isClient } = useAuthToken();
@@ -186,10 +196,10 @@ export default function MasterPage() {
     const params = new URLSearchParams();
     params.append("page", pagination.page.toString());
     params.append("limit", pagination.limit.toString());
-    params.append("order", sortConfig.order);
-    params.append("sort", sortConfig.sort);
+    params.append("order_by", sortConfig.order);
+    params.append("sort_by", sortConfig.sort === "asc" ? "ASC" : "DESC");
     if (search.trim()) params.append("search", search.trim());
-
+  
     return `${getApiEndpoint(tabType)}?${params.toString()}`;
   };
 
@@ -233,19 +243,19 @@ export default function MasterPage() {
           "Content-Type": "application/json",
         },
       });
-
+      
       if (!response.ok) {
         const errorMessage = handleApiError(response, "Gagal memuat data");
         setError(errorMessage);
         return;
       }
-
+      
       const json: ApiResponse<ClientType | ClientStatus | ServiceType> = await response.json();
       
-      if (json.code === 200 && json.data) {
-        const data = json.data;
+      if (json.code === 200 && json.data.data) {
+        const data = json.data.data;
         
-        // Update the appropriate state based on tab type
+        // Update data state
         switch (tabType) {
           case 'client-type':
             setClientTypes(data as ClientType[]);
@@ -258,20 +268,13 @@ export default function MasterPage() {
             break;
         }
         
-        // Update pagination
-        setPagination(prev => {
-          if (data.length < prev.limit) {
-            return {
-              ...prev,
-              total: (prev.page - 1) * prev.limit + data.length
-            };
-          } else {
-            return {
-              ...prev,
-              total: Math.max(prev.total, prev.page * prev.limit + 1)
-            };
-          }
-        });
+        // Update pagination from API response
+        setPagination(prev => ({
+          ...prev,
+          page: json.data.pagination.page,
+          limit: json.data.pagination.limit,
+          total: json.data.pagination.offset + data.length + (data.length === json.data.pagination.limit ? 1 : 0)
+        }));
       } else {
         setError("Gagal memuat data");
       }

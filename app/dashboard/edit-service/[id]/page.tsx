@@ -101,11 +101,8 @@ interface FormData {
   created_by: string;
 }
 
-interface EditServiceFormProps {
-  onBack?: () => void;
-}
-
-export default function EditServiceForm({ onBack }: EditServiceFormProps) {
+// This is now a proper Next.js page component
+export default function EditServicePage() {
   const [formData, setFormData] = useState<FormData>({
     service_detail_name: '',
     client_id: null,
@@ -338,6 +335,10 @@ export default function EditServiceForm({ onBack }: EditServiceFormProps) {
     }
   };
 
+  const handleBack = () => {
+    router.push("/dashboard/service-page");
+  };
+
   const isVendorRequired = selectedServiceType?.is_need_vendor === '1';
 
   if (loadingService) {
@@ -367,11 +368,9 @@ export default function EditServiceForm({ onBack }: EditServiceFormProps) {
     <Card className="w-full max-w-4xl mx-auto">
       <CardHeader>
         <div className="flex items-center gap-4">
-          {onBack && (
-            <Button variant="outline" size="sm" onClick={onBack}>
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-          )}
+          <Button variant="outline" size="sm" onClick={handleBack}>
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
           <div>
             <CardTitle className="flex items-center gap-2">
               <Edit className="h-5 w-5" />
@@ -697,13 +696,7 @@ export default function EditServiceForm({ onBack }: EditServiceFormProps) {
             <Button 
               type="button" 
               variant="outline" 
-              onClick={() => {
-                if (onBack) {
-                  onBack();
-                } else {
-                  router.push("/dashboard/service-page");
-                }
-              }}
+              onClick={handleBack}
             >
               Cancel
             </Button>

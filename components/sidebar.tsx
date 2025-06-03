@@ -92,7 +92,7 @@ export default function Sidebar({ onMinimizeChange }: SidebarProps) {
     },
     { 
       label: "Layanan", 
-      href: "#",
+      href: "/dashboard/service-page",
       icon: Settings
     },
     { 

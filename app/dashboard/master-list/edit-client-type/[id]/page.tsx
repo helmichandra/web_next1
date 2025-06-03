@@ -35,6 +35,7 @@ const useAuth = () => {
   const [token, setToken] = useState<string | null>(null);
   const [username, setUsername] = useState<string>("");
   const [isClient, setIsClient] = useState(false);
+  const [isLoading, setIsLoading] = useState(true); // Add loading state
 
   useEffect(() => {
     setIsClient(true);
@@ -54,9 +55,10 @@ const useAuth = () => {
         }
       }
     }
+    setIsLoading(false); // Set loading to false after processing
   }, []);
 
-  return { token, username, isClient };
+  return { token, username, isClient, isLoading };
 };
 
 export default function EditClientType() {
@@ -70,23 +72,13 @@ export default function EditClientType() {
   const [successMessage, setSuccessMessage] = useState("");
   const [formErrors, setFormErrors] = useState<FormErrors>({});
 
-  const { token, username, isClient } = useAuth();
+  const { token, username, isClient, isLoading: authLoading } = useAuth();
   
   const [formData, setFormData] = useState<FormData>({
     name: "",
     description: "",
     modified_by: "",
   });
-
-  // Update modified_by when username changes
-  useEffect(() => {
-    if (username) {
-      setFormData(prev => ({
-        ...prev,
-        modified_by: username
-      }));
-    }
-  }, [username]);
 
   const clearMessages = () => {
     setError("");
@@ -109,7 +101,7 @@ export default function EditClientType() {
 
   // Fetch client data
   const fetchClient = async () => {
-    if (!token || !clientId) {
+    if (!token || !clientId || !username) { // Add username check
       setIsLoading(false);
       return;
     }
@@ -138,12 +130,12 @@ export default function EditClientType() {
       if (json.code === 200 && json.data) {
         const clientData = json.data;
         
-        // Populate form with existing client data
-        setFormData(prev => ({
+        // Populate form with existing client data and ensure modified_by is set
+        setFormData({
           name: clientData.name || "",
           description: clientData.description || "",
-          modified_by: prev.modified_by || username, // Keep existing username
-        }));
+          modified_by: username, // Always use current username
+        });
         
         setError(""); // Clear any previous errors
       } else {
@@ -161,20 +153,37 @@ export default function EditClientType() {
     }
   };
 
+  // Separate useEffect for handling auth state changes
   useEffect(() => {
-    // Only fetch when we have both client-side hydration and token
-    if (isClient && token && clientId) {
-      fetchClient();
-    } else if (isClient && !token) {
-      // If no token, stop loading and show error
-      setIsLoading(false);
-      setError("Token tidak ditemukan, silakan login kembali");
-    } else if (isClient && !clientId) {
-      // If no clientId, stop loading and show error
-      setIsLoading(false);
-      setError("ID klien tidak valid");
+    if (isClient && !authLoading) {
+      if (!token) {
+        setIsLoading(false);
+        setError("Token tidak ditemukan, silakan login kembali");
+        return;
+      }
+      
+      if (!clientId) {
+        setIsLoading(false);
+        setError("ID klien tidak valid");
+        return;
+      }
+
+      // Only fetch when we have username (means token is decoded)
+      if (username) {
+        fetchClient();
+      }
     }
-  }, [isClient, token, clientId]);
+  }, [isClient, authLoading, token, clientId, username]);
+
+  // Additional useEffect to update modified_by when username changes
+  useEffect(() => {
+    if (username && formData.name) { // Only update if we already have form data
+      setFormData(prev => ({
+        ...prev,
+        modified_by: username
+      }));
+    }
+  }, [username]);
 
   const validateForm = (): boolean => {
     const errors: FormErrors = {};
@@ -213,6 +222,12 @@ export default function EditClientType() {
       return;
     }
 
+    // Ensure modified_by is set before submitting
+    const submitData = {
+      ...formData,
+      modified_by: username || formData.modified_by || "Unknown User"
+    };
+
     setIsSubmitting(true);
     clearMessages();
 
@@ -224,10 +239,11 @@ export default function EditClientType() {
           "X-Api-Key": "X-Secret-Key",
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(submitData), // Use submitData instead of formData
       });
 
       console.log("Update response:", response);
+      console.log("Data being sent:", submitData); // Debug log
 
       if (!response.ok) {
         const errorMessage = handleApiError(response, "Gagal mengupdate klien");
@@ -265,8 +281,8 @@ export default function EditClientType() {
     router.push("/dashboard/master-list/master-page");
   };
 
-  // Show loading skeleton during client-side hydration
-  if (!isClient) {
+  // Show loading skeleton during client-side hydration or auth loading
+  if (!isClient || authLoading) {
     return (
       <Card className="mt-5">
         <CardHeader>
@@ -341,6 +357,8 @@ export default function EditClientType() {
             <AlertDescription className="text-green-800">{successMessage}</AlertDescription>
           </Alert>
         )}
+
+
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Name Field */}

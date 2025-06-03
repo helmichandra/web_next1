@@ -223,18 +223,18 @@ export default function MasterPage() {
   const fetchData = async (tabType: TabType) => {
     setIsLoading(true);
     clearMessages();
-
+  
     if (!token) {
       setError("Token tidak ditemukan, silakan login kembali");
       setIsLoading(false);
       return;
     }
-
+  
     const startTime = Date.now();
-
+  
     try {
       const apiUrl = buildApiUrl(tabType);
-      console.log(apiUrl);
+      console.log("API URL:", apiUrl);
       
       const response = await fetch(apiUrl, {
         headers: {
@@ -252,8 +252,23 @@ export default function MasterPage() {
       
       const json: ApiResponse<ClientType | ClientStatus | ServiceType> = await response.json();
       
+      // DEBUG: Log the raw response
+      console.log("Raw API Response:", json);
+      console.log("Raw Data:", json.data.data);
+      
       if (json.code === 200 && json.data.data) {
         const data = json.data.data;
+        
+        // DEBUG: Log individual items for service-types
+        if (tabType === 'service-types') {
+          console.log("Service Types Data:");
+       
+            console.log("=== DEBUG SERVICE TYPES ===");
+            console.log("Raw data from API:", data);
+            console.log("First item structure:", data[0]);
+            console.log("All properties of first item:", Object.keys(data[0] || {}));
+          
+        }
         
         // Update data state
         switch (tabType) {
@@ -264,6 +279,7 @@ export default function MasterPage() {
             setClientStatuses(data as ClientStatus[]);
             break;
           case 'service-types':
+            console.log("Setting serviceTypes:", data);
             setServiceTypes(data as ServiceType[]);
             break;
         }
@@ -293,6 +309,7 @@ export default function MasterPage() {
       }, delay);
     }
   };
+  
 
   useEffect(() => {
     if (!isClient) return;
@@ -407,28 +424,8 @@ export default function MasterPage() {
     setDeleteConfirmation({ show: false, item: null, type: activeTab });
   };
 
-  const formatDateTime = (dateString: string): string => {
-    if (dateString === "0001-01-01T00:00:00Z" || !dateString) return "-";
-    try {
-      return new Date(dateString).toLocaleString('id-ID', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit'
-      });
-    } catch {
-      return "-";
-    }
-  };
 
-  const formatPrice = (price: number): string => {
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
-      minimumFractionDigits: 0,
-    }).format(price);
-  };
+
 
   const SortIndicator = ({ field }: { field: OrderField }) => {
     if (sortConfig.order !== field) return null;
@@ -467,10 +464,6 @@ export default function MasterPage() {
     }
 
     baseHeaders.push(
-      { key: "created_date", label: "Dibuat Pada", sortable: true },
-      { key: "created_by", label: "Dibuat Oleh", sortable: false },
-      { key: "modified_date", label: "Diubah Pada", sortable: false },
-      { key: "modified_by", label: "Diubah Oleh", sortable: false },
       { key: "actions", label: "Aksi", sortable: false }
     );
 
@@ -484,35 +477,10 @@ export default function MasterPage() {
       case "description":
         return <TableCell className="text-gray-600">{item.description || "-"}</TableCell>;
       case "price":
-        return (
-          <TableCell className="font-semibold text-green-600 flex items-center">
-            {formatPrice((item as ServiceType).price)}
-          </TableCell>
-        );
-      case "created_date":
-        return (
-          <TableCell className="text-sm text-gray-600">
-            {formatDateTime(item.created_date)}
-          </TableCell>
-        );
-      case "created_by":
-        return (
-          <TableCell className="text-sm text-gray-600">
-            {item.created_by || "-"}
-          </TableCell>
-        );
-      case "modified_date":
-        return (
-          <TableCell className="text-sm text-gray-600">
-            {formatDateTime(item.modified_date)}
-          </TableCell>
-        );
-      case "modified_by":
-        return (
-          <TableCell className="text-sm text-gray-600">
-            {item.modified_by || "-"}
-          </TableCell>
-        );
+        if ('price' in item) {
+          return <TableCell className="font-medium text-gray-900">{item.price}</TableCell>;
+        }
+        return <TableCell>-</TableCell>;
       case "actions":
         return (
           <TableCell>

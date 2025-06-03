@@ -147,8 +147,8 @@ export default function AddUserPage() {
       }
 
       const json = await response.json();
-      if (json.code === 200 && json.data) {
-        setRoles(json.data);
+      if (json.code === 200 && json.data.data) {
+        setRoles(json.data.data);
       } else {
         setError(json.message || "Gagal memuat data roles");
       }

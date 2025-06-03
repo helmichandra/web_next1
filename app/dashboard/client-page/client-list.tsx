@@ -295,20 +295,6 @@ export default function ClientList() {
     setDeleteConfirmation({ show: false, client: null });
   };
 
-  const formatDateTime = (dateString: string): string => {
-    if (dateString === "0001-01-01T00:00:00Z" || !dateString) return "-";
-    try {
-      return new Date(dateString).toLocaleString('id-ID', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit'
-      });
-    } catch {
-      return "-";
-    }
-  };
 
   const getClientTypeIcon = (clientTypeName: string) => {
     return clientTypeName === "Corporate" ? (
@@ -467,15 +453,6 @@ export default function ClientList() {
                 </TableHead>
                 <TableHead>WhatsApp</TableHead>
                 <TableHead>Alamat</TableHead>
-                <TableHead>Dibuat Oleh</TableHead>
-                <TableHead 
-                  onClick={() => handleSort("created_date")} 
-                  className="cursor-pointer hover:bg-gray-100 select-none"
-                  tabIndex={0}
-                  onKeyDown={(e) => e.key === 'Enter' && handleSort("created_date")}
-                >
-                  Dibuat Pada <SortIndicator field="created_date" />
-                </TableHead>
                 <TableHead>Aksi</TableHead>
               </TableRow>
             </TableHeader>
@@ -510,12 +487,6 @@ export default function ClientList() {
                     </TableCell>
                     <TableCell className="text-sm">
                       {client.address || "-"}
-                    </TableCell>
-                    <TableCell className="text-sm">
-                      {client.created_by || "-"}
-                    </TableCell>
-                    <TableCell className="text-sm">
-                      {formatDateTime(client.created_date)}
                     </TableCell>
                     <TableCell>
                       <DropdownMenu>

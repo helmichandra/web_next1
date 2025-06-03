@@ -141,8 +141,8 @@ export default function EditClient() {
 
       if (response.ok) {
         const json = await response.json();
-        if (json.code === 200 && json.data) {
-          setClientTypes(json.data);
+        if (json.code === 200 && json.data.data) {
+          setClientTypes(json.data.data);
         }
       }
     } catch (error) {

@@ -19,19 +19,37 @@ import { useRouter } from "next/navigation";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
-type User = {
+type Service = {
   id: number;
-  name: string;
-  username: string;
-  email: string;
-  role_id: number;
-  role_name: string;
+  service_detail_name: string;
+  client_id: number;
+  client_name: string;
+  service_type_id: number;
+  service_name: string;
+  vendor_id: number;
+  vendor_name: string;
+  domain_name?: string;
+  base_price: number;
+  normal_price: number;
+  is_discount: boolean;
+  discount_type: string;
+  discount: number;
+  final_price: number;
+  notes: string;
+  status: number;
+  status_name: string;
+  start_date: string;
+  end_date: string;
+  handled_by: string;
+  pic: string;
   created_date: string;
+  created_by: string;
   modified_date: string;
+  modified_by: string;
 };
 
 type SortDirection = "asc" | "desc";
-type OrderField = "name" | "email" | "role_name" | "created_date";
+type OrderField = "id" | "client_id" | "client_name" | "service_name" | "vendor_name" | "base_price" | "normal_price" | "discount_type" | "discount" | "final_price" | "status_name" | "start_date" | "end_date" | "handled_by" | "pic";
 
 type PaginationState = {
   page: number;
@@ -46,7 +64,7 @@ type SortConfig = {
 
 type DeleteConfirmation = {
   show: boolean;
-  user: User | null;
+  service: Service | null;
 };
 
 // Custom hook for token management
@@ -63,9 +81,9 @@ const useAuthToken = () => {
   return { token, isClient };
 };
 
-export default function UserPage() {
+export default function ServicesPage() {
   const [search, setSearch] = useState("");
-  const [users, setUsers] = useState<User[]>([]);
+  const [services, setServices] = useState<Service[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
@@ -73,7 +91,7 @@ export default function UserPage() {
   const [deleteLoading, setDeleteLoading] = useState<number | null>(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState<DeleteConfirmation>({
     show: false,
-    user: null,
+    service: null,
   });
   
   const [pagination, setPagination] = useState<PaginationState>({
@@ -83,7 +101,7 @@ export default function UserPage() {
   });
 
   const [sortConfig, setSortConfig] = useState<SortConfig>({
-    order: "created_date",
+    order: "id",
     sort: "desc"
   });
 
@@ -97,7 +115,7 @@ export default function UserPage() {
     params.append("sort", sortConfig.sort);
     if (search.trim()) params.append("search", search.trim());
 
-    return `/api/users?${params.toString()}`;
+    return `/api/services?${params.toString()}`;
   };
 
   const clearMessages = () => {
@@ -120,7 +138,7 @@ export default function UserPage() {
   useEffect(() => {
     if (!isClient) return;
 
-    const fetchUsers = async () => {
+    const fetchServices = async () => {
       setIsLoading(true);
       clearMessages();
 
@@ -145,29 +163,29 @@ export default function UserPage() {
         console.log(response);
 
         if (!response.ok) {
-          const errorMessage = handleApiError(response, "Gagal memuat data pengguna");
+          const errorMessage = handleApiError(response, "Gagal memuat data service");
           setError(errorMessage);
-          setUsers([]);
+          setServices([]);
           return;
         }
 
         const json = await response.json();
         if (json.code === 200 && json.data) {
-          const usersData = json.data.data || [];
+          const servicesData = json.data.data || [];
           
-          setUsers(usersData);
+          setServices(servicesData);
           
-          // ✅ PERBAIKAN PAGINATION: Logika yang sama dengan client-list
+          // Pagination logic - same as client-list
           setPagination(prev => {
-            // Jika data yang dikembalikan kurang dari limit, berarti ini halaman terakhir
-            if (usersData.length < prev.limit) {
+            // If returned data is less than limit, this is the last page
+            if (servicesData.length < prev.limit) {
               return {
                 ...prev,
-                total: (prev.page - 1) * prev.limit + usersData.length
+                total: (prev.page - 1) * prev.limit + servicesData.length
               };
             } else {
-              // Jika data sama dengan limit, asumsi masih ada data lagi
-              // Set total lebih besar untuk memungkinkan next page
+              // If data equals limit, assume there's more data
+              // Set total higher to enable next page
               return {
                 ...prev,
                 total: Math.max(prev.total, prev.page * prev.limit + 1)
@@ -175,17 +193,17 @@ export default function UserPage() {
             }
           });
         } else {
-          setError(json.message || "Gagal memuat data pengguna");
-          setUsers([]);
+          setError(json.message || "Gagal memuat data service");
+          setServices([]);
         }
       } catch (error) {
-        console.error("Error fetching users:", error);
+        console.error("Error fetching services:", error);
         if (error instanceof TypeError && error.message.includes('fetch')) {
           setError("Tidak dapat terhubung ke server. Periksa koneksi internet Anda");
         } else {
-          setError(error instanceof Error ? error.message : "Gagal memuat data pengguna");
+          setError(error instanceof Error ? error.message : "Gagal memuat data service");
         }
-        setUsers([]);
+        setServices([]);
       } finally {
         const elapsed = Date.now() - startTime;
         const delay = Math.max(1000 - elapsed, 0);
@@ -196,7 +214,7 @@ export default function UserPage() {
     };
 
     const debounceTimer = setTimeout(() => {
-      fetchUsers();
+      fetchServices();
     }, 500);
 
     return () => clearTimeout(debounceTimer);
@@ -219,26 +237,26 @@ export default function UserPage() {
     setPagination(prev => ({ ...prev, page: 1 }));
   };
 
-  const handleEdit = (user: User) => {
-    router.push(`/dashboard/edit-user/${user.id}`);
+  const handleEdit = (service: Service) => {
+    router.push(`/dashboard/edit-service/${service.id}`);
   };
 
-  const handleDelete = (user: User) => {
+  const handleDelete = (service: Service) => {
     setDeleteConfirmation({
       show: true,
-      user: user,
+      service: service,
     });
   };
 
   const confirmDelete = async () => {
-    if (!deleteConfirmation.user || !token) return;
+    if (!deleteConfirmation.service || !token) return;
 
-    const userId = deleteConfirmation.user.id;
-    setDeleteLoading(userId);
+    const serviceId = deleteConfirmation.service.id;
+    setDeleteLoading(serviceId);
     clearMessages();
 
     try {
-      const response = await fetch(`/api/users/id/${userId}`, {
+      const response = await fetch(`/api/services/id/${serviceId}`, {
         method: "DELETE",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -248,7 +266,7 @@ export default function UserPage() {
       });
 
       if (!response.ok) {
-        const errorMessage = handleApiError(response, "Gagal menghapus pengguna");
+        const errorMessage = handleApiError(response, "Gagal menghapus service");
         setError(errorMessage);
         return;
       }
@@ -256,26 +274,26 @@ export default function UserPage() {
       const json = await response.json();
 
       if (json.code === 200 || json.code === 204) {
-        setUsers(prevUsers => prevUsers.filter(u => u.id !== userId));
-        setSuccessMessage(`Pengguna ${deleteConfirmation.user.name} berhasil dihapus`);
+        setServices(prevServices => prevServices.filter(s => s.id !== serviceId));
+        setSuccessMessage(`Service ${deleteConfirmation.service.service_name} berhasil dihapus`);
         
         // Auto-hide success message after 3 seconds
         setTimeout(() => setSuccessMessage(""), 3000);
       } else {
-        throw new Error(json.message || "Gagal menghapus pengguna");
+        throw new Error(json.message || "Gagal menghapus service");
       }
 
     } catch (err) {
-      console.error("Error deleting user:", err);
+      console.error("Error deleting service:", err);
       
       if (err instanceof TypeError && err.message.includes('fetch')) {
         setError("Tidak dapat terhubung ke server. Periksa koneksi internet Anda");
       } else {
-        setError(err instanceof Error ? err.message : "Terjadi kesalahan saat menghapus pengguna");
+        setError(err instanceof Error ? err.message : "Terjadi kesalahan saat menghapus service");
       }
     } finally {
       setDeleteLoading(null);
-      setDeleteConfirmation({ show: false, user: null });
+      setDeleteConfirmation({ show: false, service: null });
     }
   };
 
@@ -288,23 +306,37 @@ export default function UserPage() {
   };
 
   const cancelDelete = () => {
-    setDeleteConfirmation({ show: false, user: null });
+    setDeleteConfirmation({ show: false, service: null });
   };
 
-
-
-  const getRoleBadge = (roleName: string) => {
-    const isAdmin = roleName.toLowerCase().includes("admin");
+  const getStatusBadge = (statusName: string) => {
+    const isActive = statusName.toLowerCase() === "aktif";
     return (
       <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-        isAdmin 
-          ? "bg-red-100 text-red-800" 
-          : "bg-blue-100 text-blue-800"
+        isActive 
+          ? "bg-green-100 text-green-800" 
+          : "bg-red-100 text-red-800"
       }`}>
         <Shield className="h-3 w-3 mr-1" />
-        {roleName}
+        {statusName}
       </span>
     );
+  };
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('id-ID', {
+      style: 'currency',
+      currency: 'IDR',
+      minimumFractionDigits: 0,
+    }).format(amount);
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('id-ID', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
   };
 
   const SortIndicator = ({ field }: { field: OrderField }) => {
@@ -319,18 +351,18 @@ export default function UserPage() {
     );
   };
 
-  // ✅ PERBAIKAN: Logika pagination yang sama dengan client-list
-  const hasNextPage = users.length === pagination.limit;
+  // Pagination logic - same as client-list
+  const hasNextPage = services.length === pagination.limit;
   const hasPrevPage = pagination.page > 1;
   const startItem = (pagination.page - 1) * pagination.limit + 1;
-  const endItem = startItem + users.length - 1;
+  const endItem = startItem + services.length - 1;
 
   // Debug logging
   console.log('Pagination Debug:', {
     page: pagination.page,
     limit: pagination.limit,
     total: pagination.total,
-    usersLength: users.length,
+    servicesLength: services.length,
     hasNextPage,
     hasPrevPage
   });
@@ -340,7 +372,7 @@ export default function UserPage() {
     return (
       <Card className="mt-5">
         <CardHeader>
-          <CardTitle>Daftar Pengguna</CardTitle>
+          <CardTitle>Daftar Service</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
@@ -357,7 +389,7 @@ export default function UserPage() {
       <CardHeader>
         <CardTitle className="flex items-center">
           <Users className="mr-2 h-5 w-5" />
-          Daftar Pengguna
+          Daftar Service
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -381,11 +413,11 @@ export default function UserPage() {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
           <input
             type="text"
-            placeholder="Cari pengguna berdasarkan nama atau email..."
+            placeholder="Cari service berdasarkan nama klien, service, atau vendor..."
             value={search}
             onChange={(e) => handleSearchChange(e.target.value)}
             className="p-2 border border-gray-300 rounded text-sm w-full sm:w-1/3 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            aria-label="Cari pengguna"
+            aria-label="Cari service"
           />
           
           <div className="flex items-center space-x-2">
@@ -402,11 +434,11 @@ export default function UserPage() {
             </select>
             
             <Button
-              onClick={() => router.push("/dashboard/add-user")}
+              onClick={() => router.push("/dashboard/add-service")}
               className="flex items-center bg-teal-600 hover:bg-teal-700"
             >
               <Plus className="mr-2 h-4 w-4" />
-              Tambah User
+              Tambah Service
             </Button>
           </div>
         </div>
@@ -417,30 +449,54 @@ export default function UserPage() {
             <TableHeader>
               <TableRow>
                 <TableHead 
-                  onClick={() => handleSort("name")} 
+                  onClick={() => handleSort("client_name")} 
                   className="cursor-pointer hover:bg-gray-100 select-none"
                   tabIndex={0}
-                  onKeyDown={(e) => e.key === 'Enter' && handleSort("name")}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSort("client_name")}
                 >
-                  Nama <SortIndicator field="name" />
-                </TableHead>
-                <TableHead>Username</TableHead>
-                <TableHead 
-                  onClick={() => handleSort("email")} 
-                  className="cursor-pointer hover:bg-gray-100 select-none"
-                  tabIndex={0}
-                  onKeyDown={(e) => e.key === 'Enter' && handleSort("email")}
-                >
-                  Email <SortIndicator field="email" />
+                  Nama Service / Klien <SortIndicator field="client_name" />
                 </TableHead>
                 <TableHead 
-                  onClick={() => handleSort("role_name")} 
+                  onClick={() => handleSort("service_name")} 
                   className="cursor-pointer hover:bg-gray-100 select-none"
                   tabIndex={0}
-                  onKeyDown={(e) => e.key === 'Enter' && handleSort("role_name")}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSort("service_name")}
                 >
-                  Role <SortIndicator field="role_name" />
+                  Service <SortIndicator field="service_name" />
                 </TableHead>
+                <TableHead 
+                  onClick={() => handleSort("vendor_name")} 
+                  className="cursor-pointer hover:bg-gray-100 select-none"
+                  tabIndex={0}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSort("vendor_name")}
+                >
+                  Vendor <SortIndicator field="vendor_name" />
+                </TableHead>
+                <TableHead 
+                  onClick={() => handleSort("final_price")} 
+                  className="cursor-pointer hover:bg-gray-100 select-none"
+                  tabIndex={0}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSort("final_price")}
+                >
+                  Harga Final <SortIndicator field="final_price" />
+                </TableHead>
+                <TableHead 
+                  onClick={() => handleSort("status_name")} 
+                  className="cursor-pointer hover:bg-gray-100 select-none"
+                  tabIndex={0}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSort("status_name")}
+                >
+                  Status <SortIndicator field="status_name" />
+                </TableHead>
+                <TableHead 
+                  onClick={() => handleSort("start_date")} 
+                  className="cursor-pointer hover:bg-gray-100 select-none"
+                  tabIndex={0}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSort("start_date")}
+                >
+                  Tanggal Mulai <SortIndicator field="start_date" />
+                </TableHead>
+                <TableHead>PIC</TableHead>
                 <TableHead>Aksi</TableHead>
               </TableRow>
             </TableHeader>
@@ -452,45 +508,72 @@ export default function UserPage() {
                     <TableCell><Skeleton className="h-4 w-24 animate-pulse" /></TableCell>
                     <TableCell><Skeleton className="h-4 w-40 animate-pulse" /></TableCell>
                     <TableCell><Skeleton className="h-4 w-20 animate-pulse" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-20 animate-pulse" /></TableCell>
                     <TableCell><Skeleton className="h-4 w-28 animate-pulse" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-28 animate-pulse" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-16 animate-pulse" /></TableCell>
                     <TableCell><Skeleton className="h-8 w-8 rounded-full animate-pulse" /></TableCell>
                   </TableRow>
                 ))
-              ) : users.length > 0 ? (
-                users.map((user) => (
-                  <TableRow key={user.id}>
-                    <TableCell className="font-medium">
-                      {user.name}
-                    </TableCell>
+              ) : services.length > 0 ? (
+                services.map((service) => (
+                  <TableRow key={service.id}>
                     <TableCell className="font-mono text-sm">
-                      {user.username}
+                        {service.service_detail_name}
+                        <div className="text-xs text-gray-500">
+                            {service.client_name}
+                        </div>
+                      
                     </TableCell>
-                    <TableCell className="text-sm">
-                      {user.email || "-"}
+                    <TableCell className="font-medium">
+                      {service.client_name}
+                    </TableCell>
+                    <TableCell className="font-medium">
+                      {service.service_name}
+                      {service.domain_name && (
+                        <div className="text-xs text-gray-500">{service.domain_name}</div>
+                      )}
                     </TableCell>
                     <TableCell>
-                      {getRoleBadge(user.role_name)}
+                      {service.vendor_name}
+                    </TableCell>
+                    <TableCell className="font-mono text-sm">
+                      {formatCurrency(service.final_price)}
+                      {service.is_discount && (
+                        <div className="text-xs text-gray-500">
+                          Disc: {service.discount_type === 'amount' 
+                            ? formatCurrency(service.discount) 
+                            : `${service.discount}%`}
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {getStatusBadge(service.status_name)}
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      {formatDate(service.start_date)}
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      {service.pic}
                     </TableCell>
                     <TableCell>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" aria-label={`Menu aksi untuk ${user.name}`}>
+                          <Button variant="ghost" size="icon" aria-label={`Menu aksi untuk ${service.service_name}`}>
                             <MoreVertical className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => handleEdit(user)}>
+                          <DropdownMenuItem onClick={() => handleEdit(service)}>
                             <Eye className="mr-2 h-4 w-4" />
-                            <span>Lihat Detail</span>
+                            <span>Edit Service</span>
                           </DropdownMenuItem>
                           <DropdownMenuItem 
-                            onClick={() => handleDelete(user)}
-                            disabled={deleteLoading === user.id}
+                            onClick={() => handleDelete(service)}
+                            disabled={deleteLoading === service.id}
                             className="text-red-600 focus:text-red-600"
                           >
                             <Trash className="mr-2 h-4 w-4" />
-                            <span>{deleteLoading === user.id ? "Menghapus..." : "Hapus"}</span>
+                            <span>{deleteLoading === service.id ? "Menghapus..." : "Hapus"}</span>
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -499,10 +582,10 @@ export default function UserPage() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-sm text-gray-500 py-8">
+                  <TableCell colSpan={8} className="text-center text-sm text-gray-500 py-8">
                     {search
-                      ? "Pengguna dengan kata kunci tersebut tidak ditemukan."
-                      : "Tidak ada data pengguna ditemukan."}
+                      ? "Service dengan kata kunci tersebut tidak ditemukan."
+                      : "Tidak ada data service ditemukan."}
                   </TableCell>
                 </TableRow>
               )}
@@ -510,11 +593,11 @@ export default function UserPage() {
           </Table>
         </div>
 
-        {/* ✅ PERBAIKAN: Pagination dengan desain yang sama dengan client-list */}
-        {users.length > 0 && (
+        {/* Pagination - same as client-list */}
+        {services.length > 0 && (
           <div className="flex flex-col sm:flex-row justify-between items-center mt-4 gap-4">
             <div className="text-sm text-gray-600">
-              Halaman {pagination.page} - Menampilkan {startItem} - {endItem} pengguna
+              Halaman {pagination.page} - Menampilkan {startItem} - {endItem} service
             </div>
             <div className="flex space-x-1">
               <Button
@@ -536,7 +619,7 @@ export default function UserPage() {
                 ‹
               </Button>
               
-              {/* Tampilkan nomor halaman saat ini */}
+              {/* Show current page number */}
               <Button
                 variant="default"
                 size="sm"
@@ -545,7 +628,7 @@ export default function UserPage() {
                 {pagination.page}
               </Button>
               
-              {/* Tampilkan halaman selanjutnya jika ada */}
+              {/* Show next page if available */}
               {hasNextPage && (
                 <Button
                   variant="outline"
@@ -589,11 +672,12 @@ export default function UserPage() {
           >
             <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full mx-4">
               <h3 id="delete-title" className="text-lg font-semibold mb-4">
-                Konfirmasi Hapus Pengguna
+                Konfirmasi Hapus Service
               </h3>
               <p className="text-gray-600 mb-6">
-                Apakah Anda yakin ingin menghapus pengguna{" "}
-                <strong>{deleteConfirmation.user?.name}</strong>?
+                Apakah Anda yakin ingin menghapus service{" "}
+                <strong>{deleteConfirmation.service?.service_name}</strong>{" "}
+                untuk klien <strong>{deleteConfirmation.service?.client_name}</strong>?
                 <br />
                 <span className="text-red-500 text-sm">
                   Tindakan ini tidak dapat dibatalkan.

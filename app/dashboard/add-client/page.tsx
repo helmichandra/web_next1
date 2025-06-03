@@ -147,8 +147,8 @@ export default function AddClient() {
       }
 
       const json = await response.json();
-      if (json.code === 200 && Array.isArray(json.data)) {
-        setClientTypes(json.data);
+      if (json.code === 200 && Array.isArray(json.data.data)) {
+        setClientTypes(json.data.data);
       } else {
         console.error("Invalid client types response:", json);
         setClientTypes([]);

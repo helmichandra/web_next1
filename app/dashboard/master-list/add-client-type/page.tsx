@@ -238,7 +238,7 @@ export default function AddClientType() {
           <Button
             variant="outline"
             onClick={handleBack}
-            className="flex items-center"
+            className="flex items-center cursor-pointer"
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
             Kembali
@@ -286,8 +286,8 @@ export default function AddClientType() {
 
           {/* Username Field */}
           <div className="space-y-2">
-            <label htmlFor="username" className="text-sm font-medium text-gray-700">
-              Username <span className="text-red-500">*</span>
+            <label htmlFor="description" className="text-sm font-medium text-gray-700">
+             Description <span className="text-red-500">*</span>
             </label>
             <input
               id="description"
@@ -314,6 +314,7 @@ export default function AddClientType() {
               variant="outline"
               onClick={handleBack}
               disabled={isSubmitting}
+              className="cursor-pointer"
             >
               Batal
             </Button>
@@ -322,13 +323,14 @@ export default function AddClientType() {
               variant="secondary"
               onClick={handleReset}
               disabled={isSubmitting}
+              className="cursor-pointer"
             >
               Reset Form
             </Button>
             <Button
               type="submit"
               disabled={isSubmitting}
-              className="flex items-center"
+              className="flex items-center cursor-pointer"
             >
               {isSubmitting ? (
                 <>

@@ -349,7 +349,7 @@ export default function AddClient() {
           <Button
             variant="outline"
             onClick={handleBack}
-            className="flex items-center"
+            className="flex items-center cursor-pointer"
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
             Kembali
@@ -495,6 +495,7 @@ export default function AddClient() {
               variant="outline"
               onClick={handleReset}
               disabled={loadingStates.submitting}
+              className="cursor-pointer"
             >
               Reset
             </Button>
@@ -503,13 +504,14 @@ export default function AddClient() {
               variant="outline"
               onClick={handleBack}
               disabled={loadingStates.submitting}
+              className="cursor-pointer"
             >
               Batal
             </Button>
             <Button
               type="submit"
               disabled={loadingStates.submitting}
-              className="flex items-center"
+              className="flex items-center cursor-pointer"
             >
               {loadingStates.submitting ? (
                 <>

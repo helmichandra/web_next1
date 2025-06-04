@@ -529,10 +529,11 @@ export default function AddServiceForm() {
               type="button" 
               variant="outline" 
               onClick= { () => router.push("/dashboard/service-page")}
+              className="cursor-pointer"
             >
               Cancel
             </Button>
-            <Button onClick={handleSubmit} disabled={submitting}>
+            <Button onClick={handleSubmit} disabled={submitting} className="cursor-pointer">
               {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {submitting ? 'Creating...' : 'Create Service'}
             </Button>

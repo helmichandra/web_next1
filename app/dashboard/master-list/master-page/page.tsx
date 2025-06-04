@@ -129,6 +129,9 @@ export default function MasterPage() {
     limit: 10,
     total: 0
   });
+  const getRowNumber = (index: number): number => {
+    return (pagination.page - 1) * pagination.limit + index + 1;
+  };
 
   const [sortConfig, setSortConfig] = useState<SortConfig>({
     order: "created_date",
@@ -424,9 +427,6 @@ export default function MasterPage() {
     setDeleteConfirmation({ show: false, item: null, type: activeTab });
   };
 
-
-
-
   const SortIndicator = ({ field }: { field: OrderField }) => {
     if (sortConfig.order !== field) return null;
     return (
@@ -455,6 +455,7 @@ export default function MasterPage() {
   // Table headers configuration based on active tab
   const getTableHeaders = () => {
     const baseHeaders = [
+      { key: "no", label: "No", sortable: false }, // Tambahkan header No
       { key: "name", label: "Nama", sortable: true },
       { key: "description", label: "Deskripsi", sortable: true },
     ];
@@ -470,8 +471,10 @@ export default function MasterPage() {
     return baseHeaders;
   };
 
-  const renderTableCell = (item: ClientType | ClientStatus | ServiceType, header: { key: string; label: string; sortable: boolean }) => {
+  const renderTableCell = (item: ClientType | ClientStatus | ServiceType, header: { key: string; label: string; sortable: boolean }, index: number) => {
     switch (header.key) {
+      case "no":
+        return <TableCell className="font-medium text-gray-900 text-center">{getRowNumber(index)}</TableCell>;
       case "name":
         return <TableCell className="font-medium text-gray-900">{item.name}</TableCell>;
       case "description":
@@ -486,19 +489,19 @@ export default function MasterPage() {
           <TableCell>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" aria-label={`Menu aksi untuk ${item.name}`}>
+                <Button variant="ghost" size="icon" aria-label={`Menu aksi untuk ${item.name}`} className="cursor-pointer">
                   <MoreVertical className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => handleViewDetail(item)}>
+                <DropdownMenuItem onClick={() => handleViewDetail(item)} className="cursor-pointer">
                   <Eye className="mr-2 h-4 w-4" />
                   <span>Lihat Detail</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem 
                   onClick={() => handleDelete(item)}
                   disabled={deleteLoading === item.id}
-                  className="text-red-600 focus:text-red-600"
+                  className="text-red-600 focus:text-red-600 cursor-pointer"
                 >
                   <Trash className="mr-2 h-4 w-4" />
                   <span>{deleteLoading === item.id ? "Menghapus..." : "Hapus"}</span>
@@ -548,7 +551,7 @@ export default function MasterPage() {
                 <button
                   key={tab.id}
                   onClick={() => handleTabChange(tab.id)}
-                  className={`px-6 py-4 text-sm font-medium border-b-2 transition-all duration-200 relative flex items-center gap-2 ${
+                  className={`px-6 py-4 text-sm font-medium border-b-2 transition-all cursor-pointer duration-200 relative flex items-center gap-2 ${
                     activeTab === tab.id
                       ? 'border-teal-500 text-teal-600 bg-white shadow-sm'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-100/50'
@@ -606,7 +609,7 @@ export default function MasterPage() {
                   <select
                     value={pagination.limit}
                     onChange={(e) => handleLimitChange(Number(e.target.value))}
-                    className="p-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    className="p-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 cursor-pointer"
                     aria-label="Jumlah item per halaman"
                   >
                     <option value={5}>5 per halaman</option>
@@ -616,7 +619,7 @@ export default function MasterPage() {
                   </select>
                   
                   <Button 
-                    className="flex items-center bg-teal-600 hover:bg-teal-700"
+                    className="flex items-center bg-teal-600 hover:bg-teal-700 cursor-pointer"
                     onClick={handleAddNew}
                   >
                     <Plus className="mr-2 h-4 w-4" />
@@ -636,7 +639,7 @@ export default function MasterPage() {
                           onClick={header.sortable ? () => handleSort(header.key as OrderField) : undefined}
                           className={`font-semibold text-gray-700 ${
                             header.sortable ? 'cursor-pointer hover:bg-gray-100 select-none' : ''
-                          }`}
+                          } ${header.key === 'no' ? 'text-center w-16' : ''}`}
                           tabIndex={header.sortable ? 0 : undefined}
                           onKeyDown={header.sortable ? (e) => e.key === 'Enter' && handleSort(header.key as OrderField) : undefined}
                         >
@@ -658,11 +661,11 @@ export default function MasterPage() {
                         </TableRow>
                       ))
                     ) : currentData.length > 0 ? (
-                      currentData.map((item) => (
+                      currentData.map((item, index) => (
                         <TableRow key={item.id} className="hover:bg-blue-50/50 transition-colors">
                           {tableHeaders.map((header) => (
                             <React.Fragment key={header.key}>
-                              {renderTableCell(item, header)}
+                              {renderTableCell(item, header, index)}
                             </React.Fragment>
                           ))}
                         </TableRow>
@@ -692,6 +695,7 @@ export default function MasterPage() {
                       size="sm"
                       onClick={() => handlePageChange(1)}
                       disabled={!hasPrevPage}
+                      className="cursor-pointer"
                       aria-label="Halaman pertama"
                     >
                       ≪
@@ -702,6 +706,7 @@ export default function MasterPage() {
                       onClick={() => handlePageChange(pagination.page - 1)}
                       disabled={!hasPrevPage}
                       aria-label="Halaman sebelumnya"
+                      className="cursor-pointer"
                     >
                       ‹
                     </Button>
@@ -710,7 +715,7 @@ export default function MasterPage() {
                       variant="default"
                       size="sm"
                       aria-current="page"
-                      className="bg-teal-600 hover:bg-teal-700"
+                      className="bg-teal-600 hover:bg-teal-700 cursor-pointer"
                     >
                       {pagination.page}
                     </Button>
@@ -721,6 +726,7 @@ export default function MasterPage() {
                         size="sm"
                         onClick={() => handlePageChange(pagination.page + 1)}
                         aria-label={`Halaman ${pagination.page + 1}`}
+                        className="cursor-pointer"
                       >
                         {pagination.page + 1}
                       </Button>
@@ -732,6 +738,7 @@ export default function MasterPage() {
                       onClick={() => handlePageChange(pagination.page + 1)}
                       disabled={!hasNextPage}
                       aria-label="Halaman selanjutnya"
+                      className="cursor-pointer"
                     >
                       ›
                     </Button>
@@ -741,6 +748,7 @@ export default function MasterPage() {
                       onClick={() => handlePageChange(pagination.page + 1)}
                       disabled={!hasNextPage}
                       aria-label="Halaman terakhir"
+                      className="cursor-pointer"
                     >
                       ≫
                     </Button>
@@ -777,6 +785,7 @@ export default function MasterPage() {
                 variant="outline"
                 onClick={cancelDelete}
                 disabled={deleteLoading !== null}
+                className="cursor-pointer"
               >
                 Batal
               </Button>
@@ -784,6 +793,7 @@ export default function MasterPage() {
                 variant="destructive"
                 onClick={confirmDelete}
                 disabled={deleteLoading !== null}
+                className="cursor-pointer"
               >
                 {deleteLoading ? "Menghapus..." : "Hapus"}
               </Button>

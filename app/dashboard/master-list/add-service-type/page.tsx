@@ -252,7 +252,7 @@ export default function AddServiceType() {
           <Button
             variant="outline"
             onClick={handleBack}
-            className="flex items-center"
+            className="flex items-center cursor-pointer"
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
             Kembali
@@ -352,6 +352,7 @@ export default function AddServiceType() {
               variant="outline"
               onClick={handleBack}
               disabled={isSubmitting}
+              className="cursor-pointer"
             >
               Batal
             </Button>
@@ -360,13 +361,14 @@ export default function AddServiceType() {
               variant="secondary"
               onClick={handleReset}
               disabled={isSubmitting}
+              className="cursor-pointer"
             >
               Reset Form
             </Button>
             <Button
               type="submit"
               disabled={isSubmitting}
-              className="flex items-center"
+              className="flex items-center cursor-pointer"
             >
               {isSubmitting ? (
                 <>

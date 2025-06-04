@@ -368,7 +368,7 @@ export default function EditServicePage() {
     <Card className="w-full max-w-4xl mx-auto">
       <CardHeader>
         <div className="flex items-center gap-4">
-          <Button variant="outline" size="sm" onClick={handleBack}>
+          <Button variant="outline" size="sm" onClick={handleBack} className="cursor-pointer">
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>
@@ -697,10 +697,11 @@ export default function EditServicePage() {
               type="button" 
               variant="outline" 
               onClick={handleBack}
+              className="cursor-pointer"
             >
               Cancel
             </Button>
-            <Button onClick={handleSubmit} disabled={submitting}>
+            <Button onClick={handleSubmit} disabled={submitting} className="cursor-pointer">
               {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {submitting ? 'Updating...' : 'Update Service'}
             </Button>

@@ -93,7 +93,9 @@ export default function ServicesPage() {
     show: false,
     service: null,
   });
-  
+  const getRowNumber = (index: number): number => {
+    return (pagination.page - 1) * pagination.limit + index + 1;
+  };
   const [pagination, setPagination] = useState<PaginationState>({
     page: 1,
     limit: 10,
@@ -424,7 +426,7 @@ export default function ServicesPage() {
             <select
               value={pagination.limit}
               onChange={(e) => handleLimitChange(Number(e.target.value))}
-              className="p-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="p-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
               aria-label="Jumlah item per halaman"
             >
               <option value={5}>5 per halaman</option>
@@ -435,7 +437,7 @@ export default function ServicesPage() {
             
             <Button
               onClick={() => router.push("/dashboard/add-service")}
-              className="flex items-center bg-teal-600 hover:bg-teal-700"
+              className="flex items-center bg-teal-600 hover:bg-teal-700 cursor-pointer"
             >
               <Plus className="mr-2 h-4 w-4" />
               Tambah Service
@@ -448,6 +450,9 @@ export default function ServicesPage() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-16 text-center">
+                  No.
+                </TableHead>
                 <TableHead 
                   onClick={() => handleSort("client_name")} 
                   className="cursor-pointer hover:bg-gray-100 select-none"
@@ -515,17 +520,17 @@ export default function ServicesPage() {
                   </TableRow>
                 ))
               ) : services.length > 0 ? (
-                services.map((service) => (
+                services.map((service, index) => (
                   <TableRow key={service.id}>
+                    <TableCell className="text-center font-medium text-gray-500">
+                      {getRowNumber(index)}
+                    </TableCell>
                     <TableCell className="font-mono text-sm">
                         {service.service_detail_name}
                         <div className="text-xs text-gray-500">
                             {service.client_name}
                         </div>
                       
-                    </TableCell>
-                    <TableCell className="font-medium">
-                      {service.client_name}
                     </TableCell>
                     <TableCell className="font-medium">
                       {service.service_name}
@@ -558,19 +563,19 @@ export default function ServicesPage() {
                     <TableCell>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" aria-label={`Menu aksi untuk ${service.service_name}`}>
+                          <Button variant="ghost" size="icon" aria-label={`Menu aksi untuk ${service.service_name}`} className="cursor-pointer">
                             <MoreVertical className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleEdit(service)}>
+                          <DropdownMenuItem onClick={() => handleEdit(service)} className="cursor-pointer">
                             <Eye className="mr-2 h-4 w-4" />
                             <span>Edit Service</span>
                           </DropdownMenuItem>
                           <DropdownMenuItem 
                             onClick={() => handleDelete(service)}
                             disabled={deleteLoading === service.id}
-                            className="text-red-600 focus:text-red-600"
+                            className="text-red-600 focus:text-red-600 cursor-pointer"
                           >
                             <Trash className="mr-2 h-4 w-4" />
                             <span>{deleteLoading === service.id ? "Menghapus..." : "Hapus"}</span>
@@ -604,6 +609,7 @@ export default function ServicesPage() {
                 variant="outline"
                 size="sm"
                 onClick={() => handlePageChange(1)}
+                className="cursor-pointer"
                 disabled={!hasPrevPage}
                 aria-label="Halaman pertama"
               >
@@ -613,6 +619,7 @@ export default function ServicesPage() {
                 variant="outline"
                 size="sm"
                 onClick={() => handlePageChange(pagination.page - 1)}
+                className="cursor-pointer"
                 disabled={!hasPrevPage}
                 aria-label="Halaman sebelumnya"
               >
@@ -624,6 +631,7 @@ export default function ServicesPage() {
                 variant="default"
                 size="sm"
                 aria-current="page"
+                className="cursor-pointer"
               >
                 {pagination.page}
               </Button>
@@ -634,6 +642,7 @@ export default function ServicesPage() {
                   variant="outline"
                   size="sm"
                   onClick={() => handlePageChange(pagination.page + 1)}
+                  className="cursor-pointer"
                   aria-label={`Halaman ${pagination.page + 1}`}
                 >
                   {pagination.page + 1}
@@ -644,6 +653,7 @@ export default function ServicesPage() {
                 variant="outline"
                 size="sm"
                 onClick={() => handlePageChange(pagination.page + 1)}
+                className="cursor-pointer"
                 disabled={!hasNextPage}
                 aria-label="Halaman selanjutnya"
               >
@@ -653,6 +663,7 @@ export default function ServicesPage() {
                 variant="outline"
                 size="sm"
                 onClick={() => handlePageChange(pagination.page + 1)}
+                className="cursor-pointer"
                 disabled={!hasNextPage}
                 aria-label="Halaman terakhir"
               >
@@ -688,6 +699,7 @@ export default function ServicesPage() {
                   variant="outline"
                   onClick={cancelDelete}
                   disabled={deleteLoading !== null}
+                  className="cursor-pointer"
                 >
                   Batal
                 </Button>
@@ -695,6 +707,7 @@ export default function ServicesPage() {
                   variant="destructive"
                   onClick={confirmDelete}
                   disabled={deleteLoading !== null}
+                  className="cursor-pointer"
                 >
                   {deleteLoading ? "Menghapus..." : "Hapus"}
                 </Button>

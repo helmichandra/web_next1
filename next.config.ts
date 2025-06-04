@@ -2,7 +2,15 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  async rewrites() {
+    async redirects() {
+      return [
+        {
+          source: '/',
+          destination: '/auth/sign-in',
+          permanent: false, // gunakan true jika redirect permanen
+        },
+      ];
+    },  async rewrites() {
     return [
       {
         source: '/api/login',

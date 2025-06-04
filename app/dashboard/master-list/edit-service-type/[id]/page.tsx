@@ -328,7 +328,7 @@ export default function EditServiceType() {
           <Button
             variant="outline"
             onClick={handleBack}
-            className="flex items-center"
+            className="flex items-center cursor-pointer"
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
             Kembali
@@ -421,6 +421,7 @@ export default function EditServiceType() {
               type="button"
               variant="outline"
               onClick={handleBack}
+              className="cursor-pointer"
               disabled={isSubmitting}
             >
               Batal
@@ -428,7 +429,7 @@ export default function EditServiceType() {
             <Button
               type="submit"
               disabled={isSubmitting}
-              className="flex items-center"
+              className="flex items-center cursor-pointer"
             >
               {isSubmitting ? (
                 <>

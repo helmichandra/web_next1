@@ -92,6 +92,9 @@ export default function ClientList() {
   });
 
   const { token, isClient } = useAuthToken();
+  const getRowNumber = (index: number): number => {
+    return (pagination.page - 1) * pagination.limit + index + 1;
+  };
 
   const buildApiUrl = (): string => {
     const params = new URLSearchParams();
@@ -403,7 +406,7 @@ export default function ClientList() {
             <select
               value={pagination.limit}
               onChange={(e) => handleLimitChange(Number(e.target.value))}
-              className="p-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="p-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
               aria-label="Jumlah item per halaman"
             >
               <option value={5}>5 per halaman</option>
@@ -414,7 +417,7 @@ export default function ClientList() {
             
             <Button
               onClick={() => router.push("/dashboard/add-client")}
-              className="flex items-center bg-teal-600 hover:bg-teal-700"
+              className="flex items-center bg-teal-600 hover:bg-teal-700 cursor-pointer"
             >
               <Plus className="mr-2 h-4 w-4 " />
               Tambah Klien
@@ -427,6 +430,9 @@ export default function ClientList() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-16 text-center">
+                  No.
+                </TableHead>
                 <TableHead 
                   onClick={() => handleSort("name")} 
                   className="cursor-pointer hover:bg-gray-100 select-none"
@@ -471,8 +477,11 @@ export default function ClientList() {
                   </TableRow>
                 ))
               ) : clients.length > 0 ? (
-                clients.map((client) => (
+                clients.map((client, index) => (
                   <TableRow key={client.id}>
+                    <TableCell className="text-center font-medium text-gray-500">
+                      {getRowNumber(index)}
+                    </TableCell>
                     <TableCell className="font-medium">
                       {client.name}
                     </TableCell>
@@ -491,19 +500,19 @@ export default function ClientList() {
                     <TableCell>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" aria-label={`Menu aksi untuk ${client.name}`}>
+                          <Button variant="ghost" size="icon" aria-label={`Menu aksi untuk ${client.name}`} className="cursor-pointer">
                             <MoreVertical className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleEdit(client)}>
+                          <DropdownMenuItem onClick={() => handleEdit(client)} className="cursor-pointer"> 
                             <Eye className="mr-2 h-4 w-4" />
                             <span>Lihat Detail</span>
                           </DropdownMenuItem>
                           <DropdownMenuItem 
                             onClick={() => handleDelete(client)}
                             disabled={deleteLoading === client.id}
-                            className="text-red-600 focus:text-red-600"
+                            className="text-red-600 focus:text-red-600 cursor-pointer"
                           >
                             <Trash className="mr-2 h-4 w-4" />
                             <span>{deleteLoading === client.id ? "Menghapus..." : "Hapus"}</span>
@@ -539,6 +548,7 @@ export default function ClientList() {
                 onClick={() => handlePageChange(1)}
                 disabled={!hasPrevPage}
                 aria-label="Halaman pertama"
+                className="cursor-pointer"
               >
                 ≪
               </Button>
@@ -547,6 +557,7 @@ export default function ClientList() {
                 size="sm"
                 onClick={() => handlePageChange(pagination.page - 1)}
                 disabled={!hasPrevPage}
+                className="cursor-pointer"
                 aria-label="Halaman sebelumnya"
               >
                 ‹
@@ -556,6 +567,7 @@ export default function ClientList() {
               <Button
                 variant="default"
                 size="sm"
+                className="cursor-pointer"
                 aria-current="page"
               >
                 {pagination.page}
@@ -568,6 +580,7 @@ export default function ClientList() {
                   size="sm"
                   onClick={() => handlePageChange(pagination.page + 1)}
                   aria-label={`Halaman ${pagination.page + 1}`}
+                  className="cursor-pointer"
                 >
                   {pagination.page + 1}
                 </Button>
@@ -578,6 +591,7 @@ export default function ClientList() {
                 size="sm"
                 onClick={() => handlePageChange(pagination.page + 1)}
                 disabled={!hasNextPage}
+                className="cursor-pointer"
                 aria-label="Halaman selanjutnya"
               >
                 ›
@@ -588,6 +602,7 @@ export default function ClientList() {
                 onClick={() => handlePageChange(pagination.page + 1)}
                 disabled={!hasNextPage}
                 aria-label="Halaman terakhir"
+                className="cursor-pointer"
               >
                 ≫
               </Button>
@@ -620,6 +635,7 @@ export default function ClientList() {
                   variant="outline"
                   onClick={cancelDelete}
                   disabled={deleteLoading !== null}
+                  className="cursor-pointer"
                 >
                   Batal
                 </Button>
@@ -627,6 +643,7 @@ export default function ClientList() {
                   variant="destructive"
                   onClick={confirmDelete}
                   disabled={deleteLoading !== null}
+                  className="cursor-pointer"
                 >
                   {deleteLoading ? "Menghapus..." : "Hapus"}
                 </Button>

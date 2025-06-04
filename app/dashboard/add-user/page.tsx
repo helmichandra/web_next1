@@ -320,7 +320,7 @@ export default function AddUserPage() {
           <Button
             variant="outline"
             onClick={handleBack}
-            className="flex items-center"
+            className="flex items-center cursor-pointer"
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
             Kembali
@@ -471,6 +471,7 @@ export default function AddUserPage() {
               variant="outline"
               onClick={handleBack}
               disabled={isSubmitting}
+              className="cursor-pointer"
             >
               Batal
             </Button>
@@ -479,13 +480,14 @@ export default function AddUserPage() {
               variant="secondary"
               onClick={handleReset}
               disabled={isSubmitting}
+              className="cursor-pointer"
             >
               Reset Form
             </Button>
             <Button
               type="submit"
               disabled={isSubmitting || isRolesLoading}
-              className="flex items-center"
+              className="flex items-center cursor-pointer"
             >
               {isSubmitting ? (
                 <>

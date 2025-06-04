@@ -318,7 +318,7 @@ export default function EditClientType() {
           <Button
             variant="outline"
             onClick={handleBack}
-            className="flex items-center"
+            className="flex items-center cursor-pointer"
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
             Kembali
@@ -392,13 +392,14 @@ export default function EditClientType() {
               variant="outline"
               onClick={handleBack}
               disabled={isSubmitting}
+              className="cursor-pointer"
             >
               Batal
             </Button>
             <Button
               type="submit"
               disabled={isSubmitting}
-              className="flex items-center"
+              className="flex items-center cursor-pointer"
             >
               {isSubmitting ? (
                 <>

@@ -277,7 +277,7 @@ export default function ServicesPage() {
 
       if (json.code === 200 || json.code === 204) {
         setServices(prevServices => prevServices.filter(s => s.id !== serviceId));
-        setSuccessMessage(`Service ${deleteConfirmation.service.service_name} berhasil dihapus`);
+        setSuccessMessage(`Service ${deleteConfirmation.service.service_detail_name} berhasil dihapus`);
         
         // Auto-hide success message after 3 seconds
         setTimeout(() => setSuccessMessage(""), 3000);
@@ -687,7 +687,7 @@ export default function ServicesPage() {
               </h3>
               <p className="text-gray-600 mb-6">
                 Apakah Anda yakin ingin menghapus service{" "}
-                <strong>{deleteConfirmation.service?.service_name}</strong>{" "}
+                <strong>{deleteConfirmation.service?.service_detail_name}</strong>{" "}
                 untuk klien <strong>{deleteConfirmation.service?.client_name}</strong>?
                 <br />
                 <span className="text-red-500 text-sm">

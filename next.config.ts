@@ -77,6 +77,10 @@ const nextConfig: NextConfig = {
         destination: 'http://202.74.74.4:3000/api/services',
       },
       {
+        source: '/api/services/all',
+        destination: 'http://202.74.74.4:3000/api/services/all',
+      },
+      {
         source: '/api/services/id/:service_id',
         destination: 'http://202.74.74.4:3000/api/services/id/:service_id',
       },

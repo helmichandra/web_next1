@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Loader2, Edit, AlertCircle, ArrowLeft } from 'lucide-react';
+import { Loader2, Edit, AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useRouter, useParams } from "next/navigation";
 
@@ -368,9 +368,6 @@ export default function EditServicePage() {
     <Card className="w-full max-w-4xl mx-auto">
       <CardHeader>
         <div className="flex items-center gap-4">
-          <Button variant="outline" size="sm" onClick={handleBack} className="cursor-pointer">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
           <div>
             <CardTitle className="flex items-center gap-2">
               <Edit className="h-5 w-5" />
@@ -424,7 +421,7 @@ export default function EditServicePage() {
                   onValueChange={handleServiceTypeChange}
                   required
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="w-full">
                     <SelectValue placeholder="Select service type" />
                   </SelectTrigger>
                   <SelectContent>
@@ -449,7 +446,7 @@ export default function EditServicePage() {
                   onValueChange={(value) => handleInputChange('client_id', parseInt(value))}
                   required
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="w-full">
                     <SelectValue placeholder="Select client type" />
                   </SelectTrigger>
                   <SelectContent>
@@ -470,7 +467,7 @@ export default function EditServicePage() {
                 value={formData.order_type}
                 onValueChange={(value: 'NEW' | 'RENEWAL') => handleInputChange('order_type', value)}
               >
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="Select order type" />
                 </SelectTrigger>
                 <SelectContent>
@@ -489,7 +486,7 @@ export default function EditServicePage() {
                 value={formData.status.toString()}
                 onValueChange={(value) => handleInputChange('status', parseInt(value))}
               >
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="Select status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -522,7 +519,7 @@ export default function EditServicePage() {
                     value={formData.vendor_id?.toString() || ''}
                     onValueChange={(value) => handleInputChange('vendor_id', parseInt(value))}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="w-full">
                       <SelectValue placeholder="Select vendor" />
                     </SelectTrigger>
                     <SelectContent>
@@ -593,7 +590,7 @@ export default function EditServicePage() {
                     value={formData.discount_type}
                     onValueChange={(value: 'amount' | 'percentage') => handleInputChange('discount_type', value)}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="w-full">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>

@@ -278,7 +278,7 @@ export default function EditServicePage() {
         setTimeout(() => {
           router.push('/auth/sign-in');
         }, 2000); // beri waktu 2 detik untuk tampilkan toast
-      }, 1 * 60 * 1000); // 30 menit
+      }, 60 * 60 * 1000); // 30 menit
   
       return () => clearTimeout(timeout); 
 

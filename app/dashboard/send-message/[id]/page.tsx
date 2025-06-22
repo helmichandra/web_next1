@@ -11,7 +11,17 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Loader2, Send, MessageSquare, Phone, Trash2, CheckCircle, AlertCircle } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { jwtDecode } from 'jwt-decode';
+import { toast } from 'sonner';
+import { useRouter } from "next/navigation";
 
+interface DecodedToken {
+  id: string;
+  username: string;
+  email: string;
+  role: string;
+  exp: number;
+}
 interface SendMessageRequest {
   to: string;
   body: string;
@@ -45,7 +55,7 @@ export default function SendMessagePage() {
   const [isLoading, setIsLoading] = useState(false);
   const [response, setResponse] = useState<SendMessageResponse | null>(null);
   const { token, isClient } = useAuthToken();
-
+  const router = useRouter();
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({
@@ -65,6 +75,40 @@ export default function SendMessagePage() {
     
     return null;
   };
+  useEffect(() => {
+    const storedToken = localStorage.getItem('token');
+    
+    if (!storedToken) {
+        router.push('/auth/sign-in');
+        return;
+    }
+
+    try {
+      const decoded = jwtDecode<DecodedToken>(storedToken);
+      
+      // Cek apakah token sudah expired
+      if (decoded.exp && decoded.exp < Date.now() / 1000) {
+        console.warn('Token has expired');
+        localStorage.removeItem('token');
+        router.push('/auth/sign-in');
+        return;
+      }
+      const timeout = setTimeout(() => {
+        toast.warning("Sesi Anda telah habis. Silakan login kembali.");
+        localStorage.removeItem('token');
+        setTimeout(() => {
+          router.push('/auth/sign-in');
+        }, 2000); // beri waktu 2 detik untuk tampilkan toast
+      }, 1 * 60 * 1000); // 30 menit
+  
+      return () => clearTimeout(timeout); 
+
+    } catch (error) {
+      console.error('Failed to decode token:', error);
+      localStorage.removeItem('token');
+      router.push('/auth/sign-in');
+    }
+  }, [router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

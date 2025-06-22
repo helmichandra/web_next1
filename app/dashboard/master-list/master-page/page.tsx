@@ -18,7 +18,16 @@ import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { jwtDecode } from 'jwt-decode';
+import { toast } from 'sonner';
 
+interface DecodedToken {
+  id: string;
+  username: string;
+  email: string;
+  role: string;
+  exp: number;
+}
 // Updated Types based on actual API response
 type ClientType = {
   id: number;
@@ -159,6 +168,40 @@ export default function MasterPage() {
     { id: 'vendor' as const, label: 'Vendor', icon: HouseWifi },
   ];
 
+  useEffect(() => {
+    const storedToken = localStorage.getItem('token');
+    
+    if (!storedToken) {
+        router.push('/auth/sign-in');
+        return;
+    }
+
+    try {
+      const decoded = jwtDecode<DecodedToken>(storedToken);
+      
+      // Cek apakah token sudah expired
+      if (decoded.exp && decoded.exp < Date.now() / 1000) {
+        console.warn('Token has expired');
+        localStorage.removeItem('token');
+        router.push('/auth/sign-in');
+        return;
+      }
+      const timeout = setTimeout(() => {
+        toast.warning("Sesi Anda telah habis. Silakan login kembali.");
+        localStorage.removeItem('token');
+        setTimeout(() => {
+          router.push('/auth/sign-in');
+        }, 2000); // beri waktu 2 detik untuk tampilkan toast
+      }, 1 * 60 * 1000); // 30 menit
+  
+      return () => clearTimeout(timeout); 
+
+    } catch (error) {
+      console.error('Failed to decode token:', error);
+      localStorage.removeItem('token');
+      router.push('/auth/sign-in');
+    }
+  }, [router]);
   // Router navigation functions
   const getAddRoute = (tabType: TabType): string => {
     const routes = {

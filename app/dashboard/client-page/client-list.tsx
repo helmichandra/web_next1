@@ -13,7 +13,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreVertical, Plus, Trash, AlertCircle, Eye, Building, User } from "lucide-react";
+import { MoreVertical, Plus, Trash, AlertCircle, Eye, Building, User, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -230,6 +230,11 @@ export default function ClientList() {
     router.push(`/dashboard/edit-client/${client.id}`);
   };
 
+  // ✅ PERBAIKAN: Sudah benar mengarah ke halaman service
+  const handleService = (client: Client) => {
+    router.push(`/dashboard/service-page?clientId=${client.id}`);
+  };
+
   const handleDelete = (client: Client) => {
     setDeleteConfirmation({
       show: true,
@@ -297,7 +302,6 @@ export default function ClientList() {
   const cancelDelete = () => {
     setDeleteConfirmation({ show: false, client: null });
   };
-
 
   const getClientTypeIcon = (clientTypeName: string) => {
     return clientTypeName === "Corporate" ? (
@@ -508,6 +512,10 @@ export default function ClientList() {
                           <DropdownMenuItem onClick={() => handleEdit(client)} className="cursor-pointer"> 
                             <Eye className="mr-2 h-4 w-4" />
                             <span>Lihat Detail</span>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleService(client)} className="cursor-pointer"> 
+                            <Settings className="mr-2 h-4 w-4" />
+                            <span>Kelola Layanan</span>
                           </DropdownMenuItem>
                           <DropdownMenuItem 
                             onClick={() => handleDelete(client)}

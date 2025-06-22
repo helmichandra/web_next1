@@ -92,6 +92,22 @@ const nextConfig: NextConfig = {
         source: '/api/vendors/all',
         destination: 'http://202.74.74.4:3000/api/vendors/all',
       },
+      {
+        source: '/api/vendors/id/:vendor_id',
+        destination: 'http://202.74.74.4:3000/api/vendors/id/:vendor_id',
+      },
+      {
+        source: '/api/reminder/wa',
+        destination: 'http://202.74.74.4:3000/api/reminder/wa',
+      },
+      {
+        source: '/api/services/reports/preview',
+        destination: 'http://202.74.74.4:3000/api/services/reports/preview',
+      },
+      {
+        source: '/api/services/reports/download/excel',
+        destination: 'http://202.74.74.4:3000/api/services/reports/download/excel',
+      },
     ]
   },
 };

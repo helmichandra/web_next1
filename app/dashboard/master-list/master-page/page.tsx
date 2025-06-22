@@ -13,7 +13,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreVertical, Eye, Plus, Trash, AlertCircle, Users, Activity, Settings } from "lucide-react";
+import { MoreVertical, Eye, Plus, Trash, AlertCircle, Users, Activity, Settings, HouseWifi } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -51,7 +51,17 @@ type ServiceType = {
   modified_by: string;
 };
 
-type TabType = "client-type" | "client-status" | "service-types";
+type Vendors = {
+  id: number;
+  name: string;
+  description: string;
+  created_date: string;
+  created_by: string;
+  modified_date: string;
+  modified_by: string;
+};
+
+type TabType = "client-type" | "client-status" | "service-types" | "vendor";
 
 type SortDirection = "asc" | "desc";
 type OrderField = "name" | "description" | "created_date";
@@ -69,7 +79,7 @@ type SortConfig = {
 
 type DeleteConfirmation = {
   show: boolean;
-  item: ClientType | ClientStatus | ServiceType | null;
+  item: ClientType | ClientStatus | ServiceType | Vendors | null;
   type: TabType;
 };
 
@@ -112,6 +122,7 @@ export default function MasterPage() {
   const [clientTypes, setClientTypes] = useState<ClientType[]>([]);
   const [clientStatuses, setClientStatuses] = useState<ClientStatus[]>([]);
   const [serviceTypes, setServiceTypes] = useState<ServiceType[]>([]);
+  const [vendors, setVendors] = useState<Vendors[]>([]);
   
   // UI states
   const [isLoading, setIsLoading] = useState(false);
@@ -145,6 +156,7 @@ export default function MasterPage() {
     { id: 'client-type' as const, label: 'Client Type', icon: Users },
     { id: 'client-status' as const, label: 'Client Status', icon: Activity },
     { id: 'service-types' as const, label: 'Service Types', icon: Settings },
+    { id: 'vendor' as const, label: 'Vendor', icon: HouseWifi },
   ];
 
   // Router navigation functions
@@ -152,7 +164,8 @@ export default function MasterPage() {
     const routes = {
       'client-type': '/dashboard/master-list/add-client-type',
       'client-status': '/dashboard/master-list/add-client-status',
-      'service-types': '/dashboard/master-list/add-service-type'
+      'service-types': '/dashboard/master-list/add-service-type',
+      'vendor': '/dashboard/master-list/add-vendor'
     };
     return routes[tabType];
   };
@@ -161,7 +174,8 @@ export default function MasterPage() {
     const routes = {
       'client-type': `/dashboard/master-list/edit-client-type/${id}`,
       'client-status': `/dashboard/master-list/edit-client-status/${id}`,
-      'service-types': `/dashboard/master-list/edit-service-type/${id}`
+      'service-types': `/dashboard/master-list/edit-service-type/${id}`,
+      'vendor': `/dashboard/master-list/edit-vendor/${id}`
     };
     return routes[tabType];
   };
@@ -181,7 +195,8 @@ export default function MasterPage() {
     const endpoints = {
       'client-type': '/api/client_types',
       'client-status': '/api/client_statuses',
-      'service-types': '/api/service_types'
+      'service-types': '/api/service_types',
+      'vendor': '/api/vendors'
     };
     return endpoints[tabType];
   };
@@ -190,7 +205,8 @@ export default function MasterPage() {
     const endpoints = {
       'client-type': `/api/client_types/id/${id}`,
       'client-status': `/api/client_statuses/id/${id}`,
-      'service-types': `/api/service_types/id/${id}`
+      'service-types': `/api/service_types/id/${id}`,
+      'vendor': `/api/vendors/id/${id}`
     };
     return endpoints[tabType];
   };
@@ -253,7 +269,7 @@ export default function MasterPage() {
         return;
       }
       
-      const json: ApiResponse<ClientType | ClientStatus | ServiceType> = await response.json();
+      const json: ApiResponse<ClientType | ClientStatus | ServiceType | Vendors> = await response.json();
       
       // DEBUG: Log the raw response
       console.log("Raw API Response:", json);
@@ -282,8 +298,12 @@ export default function MasterPage() {
             setClientStatuses(data as ClientStatus[]);
             break;
           case 'service-types':
-            console.log("Setting serviceTypes:", data);
             setServiceTypes(data as ServiceType[]);
+            break;
+          case 'vendor':
+            setVendors(data as Vendors[]);
+            break;
+          default:
             break;
         }
         
@@ -401,6 +421,11 @@ export default function MasterPage() {
           case 'service-types':
             setServiceTypes(prev => prev.filter(item => item.id !== itemId));
             break;
+          case 'vendor':
+            setVendors(prev => prev.filter(item => item.id !== itemId));
+            break;
+          default:
+            break;
         }
         
         setSuccessMessage(`Data ${deleteConfirmation.item.name} berhasil dihapus`);
@@ -447,6 +472,8 @@ export default function MasterPage() {
         return clientStatuses;
       case 'service-types':
         return serviceTypes;
+      case 'vendor':
+        return vendors;
       default:
         return [];
     }

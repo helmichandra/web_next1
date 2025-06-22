@@ -91,7 +91,7 @@ export default function SignInForm() {
         storeToken(result.data.token);
         
         // Redirect ke dashboard setelah login sukses
-        router.push("/dashboard");
+        router.push("/dashboard/reminder=dashboard");
       } else {
         throw new Error("Token not received from server");
       }

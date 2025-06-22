@@ -13,9 +13,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreVertical, Eye, Plus, Trash, AlertCircle, Users, Shield } from "lucide-react";
+import { MoreVertical, Eye, Plus, Trash, AlertCircle, Users, Shield, BadgePlus, MessageCircleCode } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
@@ -88,6 +88,8 @@ export default function ServicesPage() {
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const clientId = searchParams.get('clientId');
   const [deleteLoading, setDeleteLoading] = useState<number | null>(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState<DeleteConfirmation>({
     show: false,
@@ -117,6 +119,7 @@ export default function ServicesPage() {
     params.append("sort", sortConfig.sort);
     if (search.trim()) params.append("search", search.trim());
 
+    if (clientId) params.append("client_id", clientId);
     return `/api/services?${params.toString()}`;
   };
 
@@ -241,6 +244,9 @@ export default function ServicesPage() {
 
   const handleEdit = (service: Service) => {
     router.push(`/dashboard/edit-service/${service.id}`);
+  };
+  const handleMessage = (service: Service) => {
+    router.push(`/dashboard/send-message/${service.id}`);
   };
 
   const handleDelete = (service: Service) => {
@@ -436,11 +442,18 @@ export default function ServicesPage() {
             </select>
             
             <Button
+              onClick={() => router.push("/dashboard/add-renewal-service")}
+              className="flex items-center bg-teal-600 hover:bg-teal-700 cursor-pointer"
+            >
+              <BadgePlus className="mr-2 h-4 w-4" />
+              Renewal Service
+            </Button>
+            <Button
               onClick={() => router.push("/dashboard/add-service")}
               className="flex items-center bg-teal-600 hover:bg-teal-700 cursor-pointer"
             >
               <Plus className="mr-2 h-4 w-4" />
-              Tambah Service
+              Add Service
             </Button>
           </div>
         </div>
@@ -571,6 +584,10 @@ export default function ServicesPage() {
                           <DropdownMenuItem onClick={() => handleEdit(service)} className="cursor-pointer">
                             <Eye className="mr-2 h-4 w-4" />
                             <span>Edit Service</span>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleMessage(service)} className="cursor-pointer">
+                            <MessageCircleCode className="mr-2 h-4 w-4" />
+                            <span>Send Message</span>
                           </DropdownMenuItem>
                           <DropdownMenuItem 
                             onClick={() => handleDelete(service)}

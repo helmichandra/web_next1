@@ -38,6 +38,37 @@ interface Vendor {
   description?: string;
 }
 
+interface Service {
+  id: number;
+  service_detail_name: string;
+  client_id: number;
+  client_name: string;
+  service_type_id: number;
+  service_type_name: string;
+  vendor_id: number | null;
+  vendor_name: string | null;
+  domain_name: string;
+  base_price: number;
+  normal_price: number;
+  is_discount: boolean;
+  discount_type: string;
+  discount: number;
+  final_price: number;
+  notes: string;
+  status: number;
+  status_name: string;
+  start_date: string;
+  end_date: string | null;
+  handled_by: string;
+  pic: string;
+  order_type: string;
+  renewal_service_id: number | null;
+  renewal_service_name: string | null;
+  created_date: string;
+  created_by: string;
+  modified_date: string;
+  modified_by: string;
+}
 
 interface FormData {
   service_detail_name: string;
@@ -62,7 +93,7 @@ interface FormData {
   created_by: string;
 }
 
-export default function AddServiceForm() {
+export default function AddRenewalServiceForm() {
   const [formData, setFormData] = useState<FormData>({
     service_detail_name: '',
     client_id: null,
@@ -90,11 +121,15 @@ export default function AddServiceForm() {
   const [serviceTypes, setServiceTypes] = useState<ServiceType[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [vendors, setVendors] = useState<Vendor[]>([]);
+  const [services, setServices] = useState<Service[]>([]);
+  const [clientServices, setClientServices] = useState<Service[]>([]);
   const [selectedServiceType, setSelectedServiceType] = useState<ServiceType | null>(null);
   
   const [loadingServiceTypes, setLoadingServiceTypes] = useState(true);
   const [loadingClients, setLoadingClients] = useState(true);
   const [loadingVendors, setLoadingVendors] = useState(false);
+  const [loadingServices, setLoadingServices] = useState(false);
+  const [loadingServiceDetail, setLoadingServiceDetail] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -151,6 +186,26 @@ export default function AddServiceForm() {
     fetchClients();
   }, []);
 
+  // Fetch Services
+  const fetchServices = async () => {
+    if (services.length > 0) return; // Already loaded
+
+    setLoadingServices(true);
+    try {
+      const response = await fetch('/api/services/all', {
+        headers: apiHeaders,
+      });
+      const data = await response.json();
+      if (data.code === 200) {
+        setServices(data.data);
+      }
+    } catch (error) {
+      console.error('Error fetching services:', error);
+      setError('Failed to load services');
+    } finally {
+      setLoadingServices(false);
+    }
+  };
 
   // Fetch Vendors when needed
   const fetchVendors = async () => {
@@ -173,6 +228,25 @@ export default function AddServiceForm() {
     }
   };
 
+  // Fetch service detail by ID
+  const fetchServiceDetail = async (serviceId: number) => {
+    setLoadingServiceDetail(true);
+    try {
+      const response = await fetch(`/api/services/id/${serviceId}`, {
+        headers: apiHeaders,
+      });
+      const data = await response.json();
+      if (data.code === 200) {
+        return data.data;
+      }
+    } catch (error) {
+      console.error('Error fetching service detail:', error);
+      setError('Failed to load service detail');
+    } finally {
+      setLoadingServiceDetail(false);
+    }
+    return null;
+  };
 
   // Handle service type change
   const handleServiceTypeChange = (serviceTypeId: string) => {
@@ -201,11 +275,83 @@ export default function AddServiceForm() {
       renewal_service_id: 0 // Reset renewal service when client changes
     }));
 
-
+    // If order type is RENEWAL, filter services for this client
+    if (formData.order_type === 'RENEWAL') {
+      updateClientServices(selectedClientId);
+    }
   };
 
+  // Handle order type change
+  const handleOrderTypeChange = (orderType: 'NEW' | 'RENEWAL') => {
+    setFormData(prev => ({
+      ...prev,
+      order_type: orderType,
+      renewal_service_id: 0 // Reset renewal service when order type changes
+    }));
 
+    // If switching to RENEWAL and client is selected, load services
+    if (orderType === 'RENEWAL' && formData.client_id) {
+      fetchServices().then(() => {
+        updateClientServices(formData.client_id!);
+      });
+    }
+  };
 
+  // Handle renewal service selection and auto-fill form
+  const handleRenewalServiceChange = async (serviceId: string) => {
+    const selectedServiceId = parseInt(serviceId);
+    setFormData(prev => ({
+      ...prev,
+      renewal_service_id: selectedServiceId
+    }));
+
+    // Fetch service detail and auto-fill form
+    const serviceDetail = await fetchServiceDetail(selectedServiceId);
+    if (serviceDetail) {
+      // Find the service type for this service
+      const serviceType = serviceTypes.find(st => st.id === serviceDetail.service_type_id);
+      setSelectedServiceType(serviceType || null);
+
+      // Load vendors if needed
+      if (serviceType?.is_need_vendor === '1') {
+        await fetchVendors();
+      }
+
+      // Auto-fill form with service data
+      setFormData(prev => ({
+        ...prev,
+        service_detail_name: serviceDetail.service_detail_name,
+        service_type_id: serviceDetail.service_type_id,
+        vendor_id: serviceDetail.vendor_id,
+        domain_name: serviceDetail.domain_name,
+        base_price: serviceDetail.base_price,
+        normal_price: serviceDetail.normal_price,
+        is_discount: serviceDetail.is_discount,
+        discount_type: serviceDetail.discount_type || 'amount',
+        discount: serviceDetail.discount,
+        final_price: serviceDetail.final_price,
+        notes: serviceDetail.notes,
+        handled_by: serviceDetail.handled_by,
+        pic: serviceDetail.pic,
+        // Keep start_date and end_date empty for new renewal
+        start_date: '',
+        end_date: ''
+      }));
+    }
+  };
+
+  // Update client services based on selected client
+  const updateClientServices = (clientId: number) => {
+    if (services.length === 0) {
+      fetchServices().then(() => {
+        const filtered = services.filter(service => service.client_id === clientId);
+        setClientServices(filtered);
+      });
+    } else {
+      const filtered = services.filter(service => service.client_id === clientId);
+      setClientServices(filtered);
+    }
+  };
 
   // Calculate final price
   useEffect(() => {
@@ -256,13 +402,14 @@ export default function AddServiceForm() {
   };
 
   const isVendorRequired = selectedServiceType?.is_need_vendor === '1';
+  const shouldShowRenewalService = formData.order_type === 'RENEWAL' && formData.client_id && clientServices.length > 0;
 
   return (
     <Card className="w-full max-w-4xl mx-auto">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Plus className="h-5 w-5" />
-          Add New Service
+          Renewal Service
         </CardTitle>
         <CardDescription>
           Create a new service for your client
@@ -294,6 +441,21 @@ export default function AddServiceForm() {
             <Separator />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
+                <Label htmlFor="order_type">Order Type</Label>
+                <Select
+                  value={formData.order_type}
+                  onValueChange={handleOrderTypeChange}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select order type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="NEW">New</SelectItem>
+                    <SelectItem value="RENEWAL">Renewal</SelectItem>
+                  </SelectContent>
+                </Select>
+            </div>
+            <div className="space-y-2">
                 <Label htmlFor="client">Client *</Label>
                 {loadingClients ? (
                   <Skeleton className="h-10 w-full" />
@@ -316,7 +478,6 @@ export default function AddServiceForm() {
                   </Select>
                 )}
               </div>
-
               <div className="space-y-2">
                 <Label htmlFor="service_detail_name">Service Detail Name *</Label>
                 <Input
@@ -354,9 +515,48 @@ export default function AddServiceForm() {
 
               
 
+              
             </div>
           </div>
 
+          {/* Renewal Information Section */}
+          {shouldShowRenewalService && (
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium">Renewal Information</h3>
+              <Separator />
+              <div className="p-4 border rounded-lg bg-blue-50/50">
+                <div className="space-y-2">
+                  <Label htmlFor="renewal_service">Select Service to Renew *</Label>
+                  {loadingServices || loadingServiceDetail ? (
+                    <Skeleton className="h-10 w-full" />
+                  ) : (
+                    <Select
+                      value={formData.renewal_service_id?.toString() || ''}
+                      onValueChange={handleRenewalServiceChange}
+                      required
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select service to renew" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {clientServices.map((service) => (
+                          <SelectItem key={service.id} value={service.id.toString()}>
+                            {service.service_detail_name} - {service.service_type_name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                  {loadingServiceDetail && (
+                    <div className="flex items-center text-sm text-blue-600 mt-2">
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Loading service details...
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Vendor and Domain Section */}
           {isVendorRequired && (

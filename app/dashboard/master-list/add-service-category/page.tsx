@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { jwtDecode } from 'jwt-decode';
 import { toast } from 'sonner';
 
+
 interface DecodedToken {
     id: string;
     username: string;
@@ -20,31 +21,15 @@ interface DecodedToken {
     exp: number;
 }
 
-interface ServiceCategory {
-  id: number;
-  name: string;
-  description: string;
-  created_date: string;
-  created_by: string;
-  modified_date: string;
-  modified_by: string;
-}
-
 type FormData = {
   name: string;
   description: string;
-  price: number;
-  service_category_id: number | null;
-  service_category_name: string;
-  is_need_vendor: string;
   created_by: string;
 };
 
 type FormErrors = {
   name?: string;
   description?: string;
-  price?: string;
-  service_category_id?: string;
 };
 
 // Custom hook for token management and user info
@@ -79,25 +64,19 @@ const useAuth = () => {
   return { token, username, isClient };
 };
 
-export default function AddServiceType() {
+export default function AddServiceCategory() {
   const router = useRouter();
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [formErrors, setFormErrors] = useState<FormErrors>({});
-  const [serviceCategories, setServiceCategories] = useState<ServiceCategory[]>([]);
-  const [isLoadingCategories, setIsLoadingCategories] = useState(true);
 
   const { token, username, isClient } = useAuth();
   
   const [formData, setFormData] = useState<FormData>({
     name: "",
     description: "",
-    price: 0,
-    service_category_id: null,
-    service_category_name: "",
-    is_need_vendor: "0",
     created_by: username || "Admin",
   });
 
@@ -108,46 +87,6 @@ export default function AddServiceType() {
       created_by: username || "Admin"
     }));
   }, [username]);
-
-  // Fetch service categories
-  useEffect(() => {
-    const fetchServiceCategories = async () => {
-      if (!token) return;
-      
-      try {
-        setIsLoadingCategories(true);
-        const response = await fetch("/api/service_categories/all", {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "X-Api-Key": "X-Secret-Key",
-            "Content-Type": "application/json",
-          },
-        });
-
-        if (!response.ok) {
-          throw new Error(`Failed to fetch service categories: ${response.statusText}`);
-        }
-
-        const result = await response.json();
-        
-        if (result.code === 200 && result.data) {
-          setServiceCategories(result.data);
-        } else {
-          throw new Error(result.message || "Failed to load service categories");
-        }
-      } catch (error) {
-        console.error("Error fetching service categories:", error);
-        toast.error("Gagal memuat kategori service");
-      } finally {
-        setIsLoadingCategories(false);
-      }
-    };
-
-    if (token) {
-      fetchServiceCategories();
-    }
-  }, [token]);
 
   useEffect(() => {
     const storedToken = localStorage.getItem('token');
@@ -203,6 +142,10 @@ export default function AddServiceType() {
     return statusMessages[response.status] || `${defaultMessage} (status: ${response.status})`;
   };
 
+  // Fetch roles
+
+
+
   const validateForm = (): boolean => {
     const errors: FormErrors = {};
 
@@ -211,16 +154,9 @@ export default function AddServiceType() {
     }
 
     if (!formData.description.trim()) {
-      errors.description = "Description wajib diisi";
-    }
-    
-    if (!formData.price || formData.price <= 0) {
-      errors.price = "Price harus lebih besar dari 0";
+      errors.description = "description wajib diisi";
     }
 
-    if (!formData.service_category_id) {
-      errors.service_category_id = "Service Category wajib dipilih";
-    }
 
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
@@ -241,32 +177,6 @@ export default function AddServiceType() {
     }
   };
 
-  // Special handler for price field to handle number conversion
-  const handlePriceChange = (value: string) => {
-    const numericValue = parseFloat(value) || 0;
-    handleInputChange("price", numericValue);
-  };
-
-  // Handler for service category selection
-  const handleServiceCategoryChange = (value: string) => {
-    const categoryId = parseInt(value);
-    const selectedCategory = serviceCategories.find(cat => cat.id === categoryId);
-    
-    setFormData(prev => ({
-      ...prev,
-      service_category_id: categoryId,
-      service_category_name: selectedCategory?.name || ""
-    }));
-
-    // Clear service category error
-    if (formErrors.service_category_id) {
-      setFormErrors(prev => ({
-        ...prev,
-        service_category_id: undefined
-      }));
-    }
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -277,10 +187,8 @@ export default function AddServiceType() {
     setIsSubmitting(true);
     clearMessages();
 
-    console.log("Form data being submitted:", formData); // Debug log
-
     try {
-      const response = await fetch("/api/service_types", {
+      const response = await fetch("/api/service_categories", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -290,18 +198,12 @@ export default function AddServiceType() {
         body: JSON.stringify({
           name: formData.name,
           description: formData.description,
-          price: formData.price,
-          service_category_id: formData.service_category_id,
-          service_category_name: formData.service_category_name,
-          is_need_vendor: formData.is_need_vendor,
           created_by: formData.created_by
         }),
       });
 
-      console.log("API Response:", response); // Debug log
-
       if (!response.ok) {
-        const errorMessage = handleApiError(response, "Gagal menambahkan service type");
+        const errorMessage = handleApiError(response, "Gagal menambahkan user");
         setError(errorMessage);
         return;
       }
@@ -309,23 +211,23 @@ export default function AddServiceType() {
       const json = await response.json();
       
       if (json.code === 200 || json.code === 201) {
-        setSuccessMessage("Service Type berhasil ditambahkan!");
+        setSuccessMessage("User berhasil ditambahkan!");
         
-        // Redirect to master list after 2 seconds
+        // Redirect to user list after 2 seconds
         setTimeout(() => {
           router.push("/dashboard/master-list/master-page");
         }, 2000);
       } else {
-        throw new Error(json.message || "Gagal menambahkan service type");
+        throw new Error(json.message || "Gagal menambahkan master data client type");
       }
 
     } catch (error) {
-      console.error("Error adding service type:", error);
+      console.error("Error adding user:", error);
       
       if (error instanceof TypeError && error.message.includes('fetch')) {
         setError("Tidak dapat terhubung ke server. Periksa koneksi internet Anda");
       } else {
-        setError(error instanceof Error ? error.message : "Terjadi kesalahan saat menambahkan service type");
+        setError(error instanceof Error ? error.message : "Terjadi kesalahan saat menambahkan user");
       }
     } finally {
       setIsSubmitting(false);
@@ -336,10 +238,6 @@ export default function AddServiceType() {
     setFormData({
       name: "",
       description: "",
-      price: 0,
-      service_category_id: null,
-      service_category_name: "",
-      is_need_vendor: "0",
       created_by: username || "Admin",
     });
     clearMessages();
@@ -354,7 +252,7 @@ export default function AddServiceType() {
     return (
       <Card className="mt-5">
         <CardHeader>
-          <CardTitle>Tambah Service Type</CardTitle>
+          <CardTitle>Tambah Client Type</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
@@ -372,7 +270,7 @@ export default function AddServiceType() {
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center">
             <UserPlus className="mr-2 h-5 w-5" />
-            Tambah Service Type Baru
+            Tambah User Baru
           </CardTitle>
           <Button
             variant="outline"
@@ -405,7 +303,7 @@ export default function AddServiceType() {
           {/* Name Field */}
           <div className="space-y-2">
             <label htmlFor="name" className="text-sm font-medium text-gray-700">
-              Nama Service Type <span className="text-red-500">*</span>
+              Nama <span className="text-red-500">*</span>
             </label>
             <input
               id="name"
@@ -415,7 +313,7 @@ export default function AddServiceType() {
               className={`w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                 formErrors.name ? "border-red-500" : "border-gray-300"
               }`}
-              placeholder="Masukkan nama service type"
+              placeholder="Masukkan Service Category"
               disabled={isSubmitting}
             />
             {formErrors.name && (
@@ -423,96 +321,28 @@ export default function AddServiceType() {
             )}
           </div>
 
-          {/* Service Category Field */}
-          <div className="space-y-2">
-            <label htmlFor="service_category" className="text-sm font-medium text-gray-700">
-              Service Category <span className="text-red-500">*</span>
-            </label>
-            {isLoadingCategories ? (
-              <Skeleton className="h-12 w-full" />
-            ) : (
-              <select
-                id="service_category"
-                value={formData.service_category_id || ""}
-                onChange={(e) => handleServiceCategoryChange(e.target.value)}
-                className={`w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  formErrors.service_category_id ? "border-red-500" : "border-gray-300"
-                }`}
-                disabled={isSubmitting}
-              >
-                <option value="">Pilih Service Category</option>
-                {serviceCategories.map((category) => (
-                  <option key={category.id} value={category.id}>
-                    {category.name}
-                  </option>
-                ))}
-              </select>
-            )}
-            {formErrors.service_category_id && (
-              <p className="text-red-500 text-sm">{formErrors.service_category_id}</p>
-            )}
-          </div>
-
-          {/* Description Field */}
+          {/* Username Field */}
           <div className="space-y-2">
             <label htmlFor="description" className="text-sm font-medium text-gray-700">
               Description <span className="text-red-500">*</span>
             </label>
-            <textarea
+            <input
               id="description"
+              type="text"
               value={formData.description}
               onChange={(e) => handleInputChange("description", e.target.value)}
               className={`w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                 formErrors.description ? "border-red-500" : "border-gray-300"
               }`}
-              placeholder="Masukkan description"
+              placeholder="Masukkan Description"
               disabled={isSubmitting}
-              rows={4}
             />
             {formErrors.description && (
               <p className="text-red-500 text-sm">{formErrors.description}</p>
             )}
           </div>
 
-          {/* Price Field */}
-          <div className="space-y-2">
-            <label htmlFor="price" className="text-sm font-medium text-gray-700">
-              Price <span className="text-red-500">*</span>
-            </label>
-            <input
-              id="price"
-              type="number"
-              min="0"
-              step="0.01"
-              value={formData.price || ""}
-              onChange={(e) => handlePriceChange(e.target.value)}
-              className={`w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                formErrors.price ? "border-red-500" : "border-gray-300"
-              }`}
-              placeholder="Masukkan harga (contoh: 100000)"
-              disabled={isSubmitting}
-            />
-            {formErrors.price && (
-              <p className="text-red-500 text-sm">{formErrors.price}</p>
-            )}
-          </div>
 
-          {/* Is Need Vendor Field */}
-          <div className="space-y-2">
-            <label htmlFor="is_need_vendor" className="text-sm font-medium text-gray-700">
-              Perlu Vendor
-            </label>
-            <select
-              id="is_need_vendor"
-              value={formData.is_need_vendor}
-              onChange={(e) => handleInputChange("is_need_vendor", e.target.value)}
-              className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              disabled={isSubmitting}
-            >
-              <option value="0">Tidak</option>
-              <option value="1">Ya</option>
-            </select>
-          </div>
 
           {/* Submit Buttons */}
           <div className="flex justify-end space-x-3">
@@ -547,7 +377,7 @@ export default function AddServiceType() {
               ) : (
                 <>
                   <Save className="mr-2 h-4 w-4" />
-                  Tambah Service Type
+                  Tambah Client Type
                 </>
               )}
             </Button>

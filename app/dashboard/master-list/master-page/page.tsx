@@ -13,7 +13,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreVertical, Eye, Plus, Trash, AlertCircle, Users, Activity, Settings, HouseWifi } from "lucide-react";
+import { MoreVertical, Eye, Plus, Trash, AlertCircle, Users, Activity, Settings, HouseWifi, ListFilter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -54,6 +54,9 @@ type ServiceType = {
   name: string;
   description: string;
   price: number;
+  is_need_vendor: string;
+  service_category_id: number;
+  service_category_name: string;
   created_date: string;
   created_by: string;
   modified_date: string;
@@ -70,7 +73,17 @@ type Vendors = {
   modified_by: string;
 };
 
-type TabType = "client-type" | "client-status" | "service-types" | "vendor";
+type ServiceCategories = {
+  id: number;
+  name: string;
+  description: string;
+  created_date: string;
+  created_by: string;
+  modified_date: string;
+  modified_by: string;
+};
+
+type TabType = "client-type" | "client-status" | "service-types" | "vendor" | "service-categories";
 
 type SortDirection = "asc" | "desc";
 type OrderField = "name" | "description" | "created_date";
@@ -88,7 +101,7 @@ type SortConfig = {
 
 type DeleteConfirmation = {
   show: boolean;
-  item: ClientType | ClientStatus | ServiceType | Vendors | null;
+  item: ClientType | ClientStatus | ServiceType | Vendors | ServiceCategories| null;
   type: TabType;
 };
 
@@ -132,6 +145,7 @@ export default function MasterPage() {
   const [clientStatuses, setClientStatuses] = useState<ClientStatus[]>([]);
   const [serviceTypes, setServiceTypes] = useState<ServiceType[]>([]);
   const [vendors, setVendors] = useState<Vendors[]>([]);
+  const [serviceCategories, setServiceCategories] = useState<ServiceCategories[]>([]);
   
   // UI states
   const [isLoading, setIsLoading] = useState(false);
@@ -166,6 +180,7 @@ export default function MasterPage() {
     { id: 'client-status' as const, label: 'Client Status', icon: Activity },
     { id: 'service-types' as const, label: 'Service Types', icon: Settings },
     { id: 'vendor' as const, label: 'Vendor', icon: HouseWifi },
+    { id: 'service-categories' as const, label: 'Service Categories', icon: ListFilter },
   ];
 
   useEffect(() => {
@@ -208,7 +223,8 @@ export default function MasterPage() {
       'client-type': '/dashboard/master-list/add-client-type',
       'client-status': '/dashboard/master-list/add-client-status',
       'service-types': '/dashboard/master-list/add-service-type',
-      'vendor': '/dashboard/master-list/add-vendor'
+      'vendor': '/dashboard/master-list/add-vendor',
+      'service-categories': '/dashboard/master-list/add-service-category'
     };
     return routes[tabType];
   };
@@ -218,7 +234,8 @@ export default function MasterPage() {
       'client-type': `/dashboard/master-list/edit-client-type/${id}`,
       'client-status': `/dashboard/master-list/edit-client-status/${id}`,
       'service-types': `/dashboard/master-list/edit-service-type/${id}`,
-      'vendor': `/dashboard/master-list/edit-vendor/${id}`
+      'vendor': `/dashboard/master-list/edit-vendor/${id}`,
+      'service-categories': `/dashboard/master-list/edit-service-category/${id}`
     };
     return routes[tabType];
   };
@@ -239,7 +256,8 @@ export default function MasterPage() {
       'client-type': '/api/client_types',
       'client-status': '/api/client_statuses',
       'service-types': '/api/service_types',
-      'vendor': '/api/vendors'
+      'vendor': '/api/vendors',
+      'service-categories': '/api/service_categories'
     };
     return endpoints[tabType];
   };
@@ -249,7 +267,8 @@ export default function MasterPage() {
       'client-type': `/api/client_types/id/${id}`,
       'client-status': `/api/client_statuses/id/${id}`,
       'service-types': `/api/service_types/id/${id}`,
-      'vendor': `/api/vendors/id/${id}`
+      'vendor': `/api/vendors/id/${id}`,
+      'service-categories': `/api/service_categories/id/${id}`
     };
     return endpoints[tabType];
   };
@@ -312,7 +331,7 @@ export default function MasterPage() {
         return;
       }
       
-      const json: ApiResponse<ClientType | ClientStatus | ServiceType | Vendors> = await response.json();
+      const json: ApiResponse<ClientType | ClientStatus | ServiceType | Vendors | ServiceCategories> = await response.json();
       
       // DEBUG: Log the raw response
       console.log("Raw API Response:", json);
@@ -345,6 +364,9 @@ export default function MasterPage() {
             break;
           case 'vendor':
             setVendors(data as Vendors[]);
+            break;
+          case 'service-categories':
+            setServiceCategories(data as ServiceCategories[]);
             break;
           default:
             break;
@@ -467,6 +489,9 @@ export default function MasterPage() {
           case 'vendor':
             setVendors(prev => prev.filter(item => item.id !== itemId));
             break;
+          case 'service-categories':
+            setServiceCategories(prev => prev.filter(item => item.id !== itemId));
+            break;
           default:
             break;
         }
@@ -517,6 +542,8 @@ export default function MasterPage() {
         return serviceTypes;
       case 'vendor':
         return vendors;
+      case 'service-categories':
+        return serviceCategories;
       default:
         return [];
     }
@@ -531,7 +558,10 @@ export default function MasterPage() {
     ];
 
     if (activeTab === 'service-types') {
-      baseHeaders.push({ key: "price", label: "Harga", sortable: false });
+      baseHeaders.push(
+        { key: "price", label: "Harga", sortable: false },
+        { key: "service_category_name", label: "Kategori Layanan", sortable: false }        
+      );
     }
 
     baseHeaders.push(
@@ -552,6 +582,11 @@ export default function MasterPage() {
       case "price":
         if ('price' in item) {
           return <TableCell className="font-medium text-gray-900">{item.price}</TableCell>;
+        }
+        return <TableCell>-</TableCell>;
+      case "service_category_name":
+        if ('service_category_name' in item) {
+          return <TableCell className="font-medium text-gray-900">{item.service_category_name}</TableCell>;
         }
         return <TableCell>-</TableCell>;
       case "actions":

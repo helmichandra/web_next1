@@ -108,6 +108,18 @@ const nextConfig: NextConfig = {
         source: '/api/services/reports/download/excel',
         destination: 'http://202.74.74.4:3000/api/services/reports/download/excel',
       },
+      {
+        source: '/api/service_categories',
+        destination: 'http://202.74.74.4:3000/api/service_categories',
+      },
+      {
+        source: '/api/service_categories/all',
+        destination: 'http://202.74.74.4:3000/api/service_categories/all',
+      },
+      {
+        source: '/api/service_categories/id/:service_category_id',
+        destination: 'http://202.74.74.4:3000/api/service_categories/id/:service_category_id',
+      },
     ]
   },
 };

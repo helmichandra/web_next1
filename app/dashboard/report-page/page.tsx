@@ -55,6 +55,8 @@ interface ServiceReport {
   order_type: string;
   renewal_service_id: number | null;
   renewal_service_name: string | null;
+  service_category_id: number;
+  service_category_name: string;
   created_date: string;
   created_by: string;
   modified_date: string;
@@ -482,53 +484,65 @@ const ReportPreview = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-[200px]">Service</TableHead>
-                      <TableHead>Client</TableHead>
+                      <TableHead className="w-[200px]">Client</TableHead>
                       <TableHead>Service Type</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Price</TableHead>
-                      <TableHead>Start Date</TableHead>
-                      <TableHead>End Date</TableHead>
+                      <TableHead>Service Category Name</TableHead>
+                      <TableHead>Service Detail Name</TableHead>
+                      <TableHead>Order Type</TableHead>
+                      <TableHead className="text-right">Base Price</TableHead>
+                      <TableHead className="text-right">Normal Price</TableHead>
+                      <TableHead className="text-right">Discount Value</TableHead>
+                      <TableHead>Discount Type</TableHead>
+                      <TableHead className="text-right">Final Price</TableHead>
+                      <TableHead>Start Period</TableHead>
+                      <TableHead>End Period</TableHead>
                       <TableHead>Handled By</TableHead>
                       <TableHead>PIC</TableHead>
-                      <TableHead>Vendor</TableHead>
                       <TableHead>Notes</TableHead>
+                      <TableHead>Status</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {reports.map((report, index) => (
                       <TableRow key={`report-${report.id}-${index}`} className="hover:bg-gray-50">
                         <TableCell className="font-medium">
-                          <div>
-                            <p className="font-semibold text-gray-900">{report.service_detail_name}</p>
-                            {report.domain_name && (
-                              <p className="text-xs text-gray-500">{report.domain_name}</p>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <p className="text-sm text-gray-900">{report.client_name}</p>
+                            <p className="font-semibold text-gray-900">{report.client_name}</p>
                         </TableCell>
                         <TableCell>
                           <p className="text-sm text-gray-900">{report.service_type_name}</p>
                         </TableCell>
                         <TableCell>
-                          <Badge variant={getStatusVariant(report.status_name)}>
-                            {report.status_name}
-                          </Badge>
+                          <p className="text-sm text-gray-900">{report.service_category_name}</p>
+                        </TableCell>
+                        <TableCell>
+                          <p className="text-sm text-gray-900">{report.service_detail_name}</p>
+                        </TableCell>
+                        <TableCell>
+                          <p className="text-sm text-gray-900">{report.order_type}</p>
+                        </TableCell>               
+                        <TableCell className="text-right">
+                            <p className="text-sm font-semibold text-green-600">
+                              {formatCurrency(report.base_price)}
+                            </p>                
+                        </TableCell> 
+                        <TableCell className="text-right">
+                            <p className="text-sm font-semibold text-green-600">
+                              {formatCurrency(report.normal_price)}
+                            </p>                
+                        </TableCell>    
+                        <TableCell className="text-right">
+                            <p className="text-sm font-semibold text-green-600">
+                              {formatCurrency(report.discount)}
+                            </p>                
+                        </TableCell>        
+                        <TableCell>
+                          <p className="text-sm text-gray-900">{report.discount_type || '-'}</p>        
                         </TableCell>
                         <TableCell className="text-right">
-                          <div className="space-y-1">
                             <p className="text-sm font-semibold text-green-600">
                               {formatCurrency(report.final_price)}
-                            </p>
-                            {report.is_discount && (
-                              <p className="text-xs text-gray-500 line-through">
-                                {formatCurrency(report.normal_price)}
-                              </p>
-                            )}
-                          </div>
-                        </TableCell>
+                            </p>                
+                        </TableCell>   
                         <TableCell>
                           <p className="text-sm text-gray-900">{formatDate(report.start_date) || '-'}</p>        
                         </TableCell>
@@ -541,9 +555,6 @@ const ReportPreview = () => {
                         <TableCell>
                           <p className="text-sm text-gray-900">{report.pic || '-'}</p>
                         </TableCell>
-                        <TableCell>
-                          <p className="text-sm text-gray-900">{report.vendor_name || '-'}</p>
-                        </TableCell>
                         <TableCell className="max-w-[200px]">
                           {report.notes ? (
                             <p className="text-sm text-gray-700 truncate" title={report.notes}>
@@ -552,6 +563,11 @@ const ReportPreview = () => {
                           ) : (
                             <span className="text-gray-400">-</span>
                           )}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={getStatusVariant(report.status_name)}>
+                            {report.status_name}
+                          </Badge>
                         </TableCell>
                       </TableRow>
                     ))}

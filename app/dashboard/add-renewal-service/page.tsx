@@ -97,7 +97,7 @@ interface FormData {
   handled_by: string;
   status: number;
   pic: string;
-  order_type: 'NEW' | 'RENEWAL';
+  order_type: 'RENEWAL';
   renewal_service_id: number;
   created_by: string;
 }
@@ -121,7 +121,7 @@ export default function AddRenewalServiceForm() {
     handled_by: '',
     status: 1,
     pic: '',
-    order_type: 'NEW',
+    order_type: 'RENEWAL',
     renewal_service_id: 0,
     created_by: 'User'
   });
@@ -326,20 +326,7 @@ export default function AddRenewalServiceForm() {
   };
 
   // Handle order type change
-  const handleOrderTypeChange = (orderType: 'NEW' | 'RENEWAL') => {
-    setFormData(prev => ({
-      ...prev,
-      order_type: orderType,
-      renewal_service_id: 0 // Reset renewal service when order type changes
-    }));
 
-    // If switching to RENEWAL and client is selected, load services
-    if (orderType === 'RENEWAL' && formData.client_id) {
-      fetchServices().then(() => {
-        updateClientServices(formData.client_id!);
-      });
-    }
-  };
 
   // Handle renewal service selection and auto-fill form
   const handleRenewalServiceChange = async (serviceId: string) => {
@@ -485,21 +472,6 @@ export default function AddRenewalServiceForm() {
             <Separator />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
-                <Label htmlFor="order_type">Order Type</Label>
-                <Select
-                  value={formData.order_type}
-                  onValueChange={handleOrderTypeChange}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select order type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="NEW">New</SelectItem>
-                    <SelectItem value="RENEWAL">Renewal</SelectItem>
-                  </SelectContent>
-                </Select>
-            </div>
-            <div className="space-y-2">
                 <Label htmlFor="client">Client *</Label>
                 {loadingClients ? (
                   <Skeleton className="h-10 w-full" />
@@ -556,18 +528,10 @@ export default function AddRenewalServiceForm() {
                   </Select>
                 )}
               </div>
-
-              
-
-              
-            </div>
-          </div>
-
-          {/* Renewal Information Section */}
+               {/* Renewal Information Section */}
           {shouldShowRenewalService && (
-            <div className="space-y-4">
-              <h3 className="text-lg font-medium">Renewal Information</h3>
-              <Separator />
+            <div className="space-y-2">
+      
               <div className="p-4 border rounded-lg bg-blue-50/50">
                 <div className="space-y-2">
                   <Label htmlFor="renewal_service">Select Service to Renew *</Label>
@@ -601,6 +565,14 @@ export default function AddRenewalServiceForm() {
               </div>
             </div>
           )}
+
+              
+
+              
+            </div>
+          </div>
+
+         
 
           {/* Vendor and Domain Section */}
           {isVendorRequired && (

@@ -649,29 +649,32 @@ export default function MasterPage() {
       <div className="bg-white rounded-lg shadow-sm border">
         {/* Tab Navigation */}
         <div className="border-b bg-gray-50/50">
-          <div className="flex space-x-0">
-            {tabs.map((tab, index) => {
-              const IconComponent = tab.icon;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => handleTabChange(tab.id)}
-                  className={`px-6 py-4 text-sm font-medium border-b-2 transition-all cursor-pointer duration-200 relative flex items-center gap-2 ${
-                    activeTab === tab.id
-                      ? 'border-teal-500 text-teal-600 bg-white shadow-sm'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-100/50'
-                  } ${index > 0 ? 'border-l border-gray-200' : ''}`}
-                >
-                  <IconComponent className="h-4 w-4" />
-                  {tab.label}
-                  {activeTab === tab.id && (
-                    <div className="absolute inset-x-0 top-0 h-0.5 bg-teal-500 rounded-full"></div>
-                  )}
-                </button>
-              );
-            })}
+          <div className="overflow-x-auto scrollbar-hide">
+            <div className="flex whitespace-nowrap">
+              {tabs.map((tab, index) => {
+                const IconComponent = tab.icon;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => handleTabChange(tab.id)}
+                    className={`px-6 py-4 text-sm font-medium border-b-2 transition-all cursor-pointer duration-200 relative flex items-center gap-2 ${
+                      activeTab === tab.id
+                        ? 'border-teal-500 text-teal-600 bg-white shadow-sm'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-100/50'
+                    } ${index > 0 ? 'border-l border-gray-200' : ''}`}
+                  >
+                    <IconComponent className="h-4 w-4" />
+                    {tab.label}
+                    {activeTab === tab.id && (
+                      <div className="absolute inset-x-0 top-0 h-0.5 bg-teal-500 rounded-full"></div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
+
 
         {/* Tab Content */}
         <div className="p-6">

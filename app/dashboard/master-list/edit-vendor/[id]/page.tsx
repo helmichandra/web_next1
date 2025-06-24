@@ -428,15 +428,7 @@ export default function EditVendor() {
 
           {/* Submit Button */}
           <div className="flex justify-end space-x-3">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleBack}
-              className="cursor-pointer"
-              disabled={isSubmitting}
-            >
-              Batal
-            </Button>
+           
             <Button
               type="submit"
               disabled={isSubmitting}

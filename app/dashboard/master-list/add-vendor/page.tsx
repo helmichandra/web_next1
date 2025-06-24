@@ -346,15 +346,6 @@ export default function AddVendor() {
           <div className="flex justify-end space-x-3">
             <Button
               type="button"
-              variant="outline"
-              onClick={handleBack}
-              disabled={isSubmitting}
-              className="cursor-pointer"
-            >
-              Batal
-            </Button>
-            <Button
-              type="button"
               variant="secondary"
               onClick={handleReset}
               disabled={isSubmitting}

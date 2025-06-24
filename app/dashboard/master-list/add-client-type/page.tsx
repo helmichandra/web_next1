@@ -270,7 +270,7 @@ export default function AddClientType() {
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center">
             <UserPlus className="mr-2 h-5 w-5" />
-            Tambah User Baru
+            Tambah Tipe Klien
           </CardTitle>
           <Button
             variant="outline"
@@ -346,15 +346,6 @@ export default function AddClientType() {
 
           {/* Submit Buttons */}
           <div className="flex justify-end space-x-3">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleBack}
-              disabled={isSubmitting}
-              className="cursor-pointer"
-            >
-              Batal
-            </Button>
             <Button
               type="button"
               variant="secondary"

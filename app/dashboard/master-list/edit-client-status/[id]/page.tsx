@@ -423,15 +423,6 @@ export default function EditClientType() {
           {/* Submit Button */}
           <div className="flex justify-end space-x-3">
             <Button
-              type="button"
-              variant="outline"
-              onClick={handleBack}
-              disabled={isSubmitting}
-              className="cursor-pointer"
-            >
-              Batal
-            </Button>
-            <Button
               type="submit"
               disabled={isSubmitting}
               className="flex items-center cursor-pointer"

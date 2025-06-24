@@ -146,7 +146,7 @@ export default function MasterPage() {
   const [serviceTypes, setServiceTypes] = useState<ServiceType[]>([]);
   const [vendors, setVendors] = useState<Vendors[]>([]);
   const [serviceCategories, setServiceCategories] = useState<ServiceCategories[]>([]);
-  
+
   // UI states
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
@@ -182,6 +182,7 @@ export default function MasterPage() {
     { id: 'vendor' as const, label: 'Vendor', icon: HouseWifi },
     { id: 'service-categories' as const, label: 'Service Categories', icon: ListFilter },
   ];
+
 
   useEffect(() => {
     const storedToken = localStorage.getItem('token');
@@ -702,7 +703,7 @@ export default function MasterPage() {
                 </Alert>
               )}
 
-              {/* Controls */}
+              {/* Controls */}     
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
                 <input
                   type="text"
@@ -713,11 +714,11 @@ export default function MasterPage() {
                   aria-label="Cari data"
                 />
                 
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-1">
                   <select
                     value={pagination.limit}
                     onChange={(e) => handleLimitChange(Number(e.target.value))}
-                    className="p-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 cursor-pointer"
+                    className="p-2 border border-gray-300 rounded text-xs focus:outline-none focus:ring-2 focus:ring-teal-500 cursor-pointer"
                     aria-label="Jumlah item per halaman"
                   >
                     <option value={5}>5 per halaman</option>
@@ -727,13 +728,14 @@ export default function MasterPage() {
                   </select>
                   
                   <Button 
-                    className="flex items-center bg-teal-600 hover:bg-teal-700 cursor-pointer"
+                    className="flex items-center text-xs bg-teal-600 hover:bg-teal-700 cursor-pointer p-1"
                     onClick={handleAddNew}
                   >
                     <Plus className="mr-2 h-4 w-4" />
                     Tambah Data
                   </Button>
                 </div>
+                
               </div>
               
               {/* Table */}

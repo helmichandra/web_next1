@@ -1,4 +1,3 @@
-"use client";
 
 import { useEffect, useState } from "react";
 import {
@@ -20,6 +19,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { jwtDecode } from 'jwt-decode';
 import { toast } from 'sonner';
+
 
 interface DecodedToken {
   id: string;
@@ -90,6 +90,10 @@ const useAuthToken = () => {
   return { token, isClient };
 };
 
+export const metadata = {
+  title: 'Halaman Layanan',
+};
+
 export default function ServicesPage() {
   const [search, setSearch] = useState("");
   const [services, setServices] = useState<Service[]>([]);
@@ -100,6 +104,8 @@ export default function ServicesPage() {
   const searchParams = useSearchParams();
   const clientId = searchParams.get('clientId');
   const [deleteLoading, setDeleteLoading] = useState<number | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
+
   const [deleteConfirmation, setDeleteConfirmation] = useState<DeleteConfirmation>({
     show: false,
     service: null,
@@ -119,7 +125,17 @@ export default function ServicesPage() {
   });
 
   const { token, isClient } = useAuthToken();
+  useEffect(() => {
+    const checkDevice = () => {
+      const width = window.innerWidth;
+      
+      setIsMobile(width < 768);
+    };
 
+    checkDevice();
+    window.addEventListener('resize', checkDevice);
+    return () => window.removeEventListener('resize', checkDevice);
+  }, []);
   const buildApiUrl = (): string => {
     const params = new URLSearchParams();
     params.append("page", pagination.page.toString());
@@ -436,6 +452,7 @@ export default function ServicesPage() {
   }
 
   return (
+    <>
     <Card className="mt-5">
       <CardHeader>
         <CardTitle className="flex items-center">
@@ -461,21 +478,64 @@ export default function ServicesPage() {
         )}
 
         {/* Controls */}
+        {!isMobile && (
+
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
           <input
             type="text"
-            placeholder="Cari service berdasarkan nama klien, service, atau vendor..."
+            placeholder="Cari service"
             value={search}
             onChange={(e) => handleSearchChange(e.target.value)}
             className="p-2 border border-gray-300 rounded text-sm w-full sm:w-1/3 focus:outline-none focus:ring-2 focus:ring-blue-500"
             aria-label="Cari service"
           />
-          
           <div className="flex items-center space-x-2">
+              <Button
+                onClick={() => router.push("/dashboard/add-renewal-service")}
+                className="flex items-center bg-teal-600 hover:bg-teal-700 cursor-pointer"
+              >
+                <BadgePlus className="mr-2 h-4 w-4" />
+                Renewal Service
+              </Button>
+              <Button
+                onClick={() => router.push("/dashboard/add-service")}
+                className="flex items-center bg-teal-600 hover:bg-teal-700 cursor-pointer"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Add Service
+              </Button>
+              <select
+                value={pagination.limit}
+                onChange={(e) => handleLimitChange(Number(e.target.value))}
+                className="p-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                aria-label="Jumlah item per halaman"
+              >
+                <option value={5}>5 per halaman</option>
+                <option value={10}>10 per halaman</option>
+                <option value={20}>20 per halaman</option>
+                <option value={50}>50 per halaman</option>
+              </select>
+            </div>
+        </div>
+        )}
+        {isMobile && (
+          <div className="flex flex-col gap-4 mb-4">
+          {/* Search Bar */}
+          <input
+            type="text"
+            placeholder="Cari service berdasarkan nama klien, service, atau vendor..."
+            value={search}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            className="p-2 border border-gray-300 rounded text-sm w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+            aria-label="Cari service"
+          />
+          
+          {/* Controls Row */}
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
             <select
               value={pagination.limit}
               onChange={(e) => handleLimitChange(Number(e.target.value))}
-              className="p-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+              className="p-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer w-full sm:w-auto"
               aria-label="Jumlah item per halaman"
             >
               <option value={5}>5 per halaman</option>
@@ -484,22 +544,30 @@ export default function ServicesPage() {
               <option value={50}>50 per halaman</option>
             </select>
             
-            <Button
-              onClick={() => router.push("/dashboard/add-renewal-service")}
-              className="flex items-center bg-teal-600 hover:bg-teal-700 cursor-pointer"
-            >
-              <BadgePlus className="mr-2 h-4 w-4" />
-              Renewal Service
-            </Button>
-            <Button
-              onClick={() => router.push("/dashboard/add-service")}
-              className="flex items-center bg-teal-600 hover:bg-teal-700 cursor-pointer"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Add Service
-            </Button>
+            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+              <Button
+                onClick={() => router.push("/dashboard/add-renewal-service")}
+                className="flex items-center justify-center bg-teal-600 hover:bg-teal-700 cursor-pointer w-full sm:w-auto"
+              >
+                <BadgePlus className="mr-2 h-4 w-4" />
+                <span className="hidden sm:inline">Renewal Service</span>
+                <span className="sm:hidden">Renewal</span>
+              </Button>
+              <Button
+                onClick={() => router.push("/dashboard/add-service")}
+                className="flex items-center justify-center bg-teal-600 hover:bg-teal-700 cursor-pointer w-full sm:w-auto"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                <span className="hidden sm:inline">Add Service</span>
+                <span className="sm:hidden">Add</span>
+              </Button>
+            </div>
           </div>
-        </div>
+         </div>
+
+        )}
+
+
         
         {/* Table */}
         <div className="overflow-x-auto">
@@ -777,5 +845,6 @@ export default function ServicesPage() {
         )}
       </CardContent>
     </Card>
+    </>
   );
 }

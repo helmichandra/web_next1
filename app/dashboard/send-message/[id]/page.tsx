@@ -324,7 +324,7 @@ export default function SendMessagePage() {
                     onChange={handleInputChange}
                     rows={8}
                     className="resize-none text-base leading-relaxed"
-                    placeholder="Tulis pesan WhatsApp Anda di sini ya jink !!!!!!!"
+                    placeholder="Tulis pesan WhatsApp Anda di sini"
                     disabled={!token}
                   />
                   <div className="flex justify-between items-center">

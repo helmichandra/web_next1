@@ -1,3 +1,4 @@
+"use client";
 
 import { useEffect, useState } from "react";
 import {
@@ -90,9 +91,7 @@ const useAuthToken = () => {
   return { token, isClient };
 };
 
-export const metadata = {
-  title: 'Halaman Layanan',
-};
+
 
 export default function ServicesPage() {
   const [search, setSearch] = useState("");

@@ -3,7 +3,7 @@
 
 import { Menu, Transition } from "@headlessui/react";
 import { Fragment } from "react";
-import { LogOut, User, Settings } from "lucide-react";
+import { LogOut, User } from "lucide-react";
 import Image from "next/image";
 import { jwtDecode } from 'jwt-decode';
 import { useEffect, useState } from "react";
@@ -93,19 +93,7 @@ export default function UserMenu() {
               )}
             </Menu.Item>
 
-            <Menu.Item>
-              {({ active }) => (
-                <a
-                  href="#"
-                  className={`${
-                    active ? "bg-gray-100" : ""
-                  } flex items-center px-4 py-2 text-sm text-gray-700`}
-                >
-                  <Settings className="w-4 h-4 mr-2" />
-                  Account Settings
-                </a>
-              )}
-            </Menu.Item>
+
 
             <Menu.Item>
               {({ active }) => (

@@ -26,8 +26,10 @@ interface DecodedToken {
   username: string;
   email: string;
   role: string;
+  role_id: string;
   exp: number;
 }
+
 type Client = {
   id: number;
   name: string;
@@ -64,16 +66,28 @@ type DeleteConfirmation = {
 // Custom hook for token management
 const useAuthToken = () => {
   const [token, setToken] = useState<string | null>(null);
+  const [userRoleId, setUserRoleId] = useState<string | null>(null);
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
     setIsClient(true);
     if (typeof window !== 'undefined') {
-      setToken(localStorage.getItem("token"));
+      const storedToken = localStorage.getItem("token");
+      setToken(storedToken);
+      
+      // Decode token to get role_id
+      if (storedToken) {
+        try {
+          const decoded = jwtDecode<DecodedToken>(storedToken);
+          setUserRoleId(decoded.role_id);
+        } catch (error) {
+          console.error('Failed to decode token for role:', error);
+        }
+      }
     }
   }, []);
 
-  return { token, isClient };
+  return { token, userRoleId, isClient };
 };
 
 export default function ClientList() {
@@ -100,7 +114,11 @@ export default function ClientList() {
     sort_by: "DESC"
   });
 
-  const { token, isClient } = useAuthToken();
+  const { token, userRoleId, isClient } = useAuthToken();
+  
+  // Check if user has delete permission (only role_id = "1" can delete)
+  const canDelete = userRoleId === "1";
+
   const getRowNumber = (index: number): number => {
     return (pagination.page - 1) * pagination.limit + index + 1;
   };
@@ -131,7 +149,7 @@ export default function ClientList() {
     };
 
     return statusMessages[response.status] || `${defaultMessage} (status: ${response.status})`;
-  };
+  };  
   
   useEffect(() => {
     const storedToken = localStorage.getItem('token');
@@ -185,7 +203,6 @@ export default function ClientList() {
 
       try {
         const apiUrl = buildApiUrl();
-        console.log(apiUrl)
         const response = await fetch(apiUrl, {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -193,7 +210,6 @@ export default function ClientList() {
             "Content-Type": "application/json",
           },
         });
-        console.log(response)
 
         if (!response.ok) {
           const errorMessage = handleApiError(response, "Gagal memuat data klien");
@@ -387,15 +403,7 @@ export default function ClientList() {
   const startItem = (pagination.page - 1) * pagination.limit + 1;
   const endItem = startItem + clients.length - 1;
 
-  // Debug logging
-  console.log('Pagination Debug:', {
-    page: pagination.page,
-    limit: pagination.limit,
-    total: pagination.total,
-    clientsLength: clients.length,
-    hasNextPage,
-    hasPrevPage
-  });
+
 
   // Don't render until client-side hydration is complete
   if (!isClient) {
@@ -561,14 +569,17 @@ export default function ClientList() {
                             <Settings className="mr-2 h-4 w-4" />
                             <span>Kelola Layanan</span>
                           </DropdownMenuItem>
-                          <DropdownMenuItem 
-                            onClick={() => handleDelete(client)}
-                            disabled={deleteLoading === client.id}
-                            className="text-red-600 focus:text-red-600 cursor-pointer"
-                          >
-                            <Trash className="mr-2 h-4 w-4" />
-                            <span>{deleteLoading === client.id ? "Menghapus..." : "Hapus"}</span>
-                          </DropdownMenuItem>
+                          {/* Only show delete option if user has delete permission (role_id = "1") */}
+                          {canDelete && (
+                            <DropdownMenuItem 
+                              onClick={() => handleDelete(client)}
+                              disabled={deleteLoading === client.id}
+                              className="text-red-600 focus:text-red-600 cursor-pointer"
+                            >
+                              <Trash className="mr-2 h-4 w-4" />
+                              <span>{deleteLoading === client.id ? "Menghapus..." : "Hapus"}</span>
+                            </DropdownMenuItem>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
@@ -662,8 +673,8 @@ export default function ClientList() {
           </div>
         )}
 
-        {/* Delete Confirmation Modal */}
-        {deleteConfirmation.show && (
+        {/* Delete Confirmation Modal - Only show if user has delete permission */}
+        {deleteConfirmation.show && canDelete && (
           <div 
             className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
             role="dialog"

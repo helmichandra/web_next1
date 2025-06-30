@@ -26,6 +26,7 @@ interface DecodedToken {
   username: string;
   email: string;
   role: string;
+  role_id: string;
   exp: number;
 }
 type User = {
@@ -61,15 +62,28 @@ type DeleteConfirmation = {
 // Custom hook for token management
 const useAuthToken = () => {
   const [token, setToken] = useState<string | null>(null);
+  const [userRoleId, setUserRoleId] = useState<string | null>(null);
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
     setIsClient(true);
     if (typeof window !== 'undefined') {
-      setToken(localStorage.getItem("token"));
+      const storedToken = localStorage.getItem("token");
+      setToken(storedToken);
+      
+      // Decode token to get role_id
+      if (storedToken) {
+        try {
+          const decoded = jwtDecode<DecodedToken>(storedToken);
+          setUserRoleId(decoded.role_id);
+        } catch (error) {
+          console.error('Failed to decode token for role:', error);
+        }
+      }
     }
   }, []);
-  return { token, isClient };
+
+  return { token, userRoleId, isClient };
 };
 
 export default function UserPage() {
@@ -84,6 +98,10 @@ export default function UserPage() {
     show: false,
     user: null,
   });
+  const { token, userRoleId, isClient } = useAuthToken();
+
+  const canDelete = userRoleId === "1";
+
   const getRowNumber = (index: number): number => {
     return (pagination.page - 1) * pagination.limit + index + 1;
   };
@@ -98,7 +116,6 @@ export default function UserPage() {
     sort: "desc"
   });
 
-  const { token, isClient } = useAuthToken();
 
   const buildApiUrl = (): string => {
     const params = new URLSearchParams();
@@ -187,7 +204,6 @@ export default function UserPage() {
             "Content-Type": "application/json",
           },
         });
-        console.log(response);
 
         if (!response.ok) {
           const errorMessage = handleApiError(response, "Gagal memuat data pengguna");
@@ -364,21 +380,11 @@ export default function UserPage() {
     );
   };
 
-  // ✅ PERBAIKAN: Logika pagination yang sama dengan client-list
   const hasNextPage = users.length === pagination.limit;
   const hasPrevPage = pagination.page > 1;
   const startItem = (pagination.page - 1) * pagination.limit + 1;
   const endItem = startItem + users.length - 1;
 
-  // Debug logging
-  console.log('Pagination Debug:', {
-    page: pagination.page,
-    limit: pagination.limit,
-    total: pagination.total,
-    usersLength: users.length,
-    hasNextPage,
-    hasPrevPage
-  });
 
   // Don't render until client-side hydration is complete
   if (!isClient) {
@@ -535,14 +541,16 @@ export default function UserPage() {
                             <Eye className="mr-2 h-4 w-4" />
                             <span>Lihat Detail</span>
                           </DropdownMenuItem>
-                          <DropdownMenuItem 
-                            onClick={() => handleDelete(user)}
-                            disabled={deleteLoading === user.id}
-                            className="text-red-600 focus:text-red-600 cursor-pointer"
-                          >
-                            <Trash className="mr-2 h-4 w-4" />
-                            <span>{deleteLoading === user.id ? "Menghapus..." : "Hapus"}</span>
-                          </DropdownMenuItem>
+                          {canDelete && (
+                            <DropdownMenuItem 
+                              onClick={() => handleDelete(user)}
+                              disabled={deleteLoading === user.id}
+                              className="text-red-600 focus:text-red-600 cursor-pointer"
+                            >
+                              <Trash className="mr-2 h-4 w-4" />
+                              <span>{deleteLoading === user.id ? "Menghapus..." : "Hapus"}</span>
+                            </DropdownMenuItem>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
@@ -561,7 +569,6 @@ export default function UserPage() {
           </Table>
         </div>
 
-        {/* ✅ PERBAIKAN: Pagination dengan desain yang sama dengan client-list */}
         {users.length > 0 && (
           <div className="flex flex-col sm:flex-row justify-between items-center mt-4 gap-4">
             <div className="text-sm text-gray-600">
@@ -636,8 +643,7 @@ export default function UserPage() {
           </div>
         )}
 
-        {/* Delete Confirmation Modal */}
-        {deleteConfirmation.show && (
+        {deleteConfirmation.show && canDelete && (
           <div 
             className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
             role="dialog"

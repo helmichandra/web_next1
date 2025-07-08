@@ -22,6 +22,7 @@ export default function UserMenu() {
   const router = useRouter();
   const [username, setUsername] = useState<string>("");
   const [email, setEmail] = useState<string>("");
+  const [id, setId] = useState<string>("");
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -36,6 +37,9 @@ export default function UserMenu() {
           if (decoded.email) {
             setEmail(decoded.email);
           }
+          if (decoded.id) {
+            setId(decoded.id);
+          }
         } catch (error) {
           console.error("Error decoding token:", error);
           setUsername("Unknown User");
@@ -48,6 +52,9 @@ export default function UserMenu() {
     localStorage.removeItem("token");
     Cookies.remove("token");
     router.push("/auth/sign-in");
+  };
+  const handleProfile = () => {
+    router.push(`/dashboard/edit-user/${id}`);
   };
   return (
     <Menu as="div" className="relative inline-block text-left">
@@ -82,10 +89,10 @@ export default function UserMenu() {
             <Menu.Item>
               {({ active }) => (
                 <a
-                  href="#"
                   className={`${
                     active ? "bg-gray-100" : ""
                   } flex items-center px-4 py-2 text-sm text-gray-700`}
+                  onClick={handleProfile}
                 >
                   <User className="w-4 h-4 mr-2" />
                   My Profile

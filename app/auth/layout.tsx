@@ -5,7 +5,7 @@ import { Inter } from "next/font/google"
 
 // Assets
 import bgAuth from "@/public/media/images/2600x1200/bg-7.png"
-import bgAuthLeft from "@/public/media/images/600x600/26.jpg"
+import bgAuthLeft from "@/public/media/app/bg-1.jpg"
 
 const inter = Inter({ subsets: ["latin"] })
 

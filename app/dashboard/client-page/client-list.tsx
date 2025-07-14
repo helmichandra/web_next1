@@ -569,7 +569,6 @@ export default function ClientList() {
                             <Settings className="mr-2 h-4 w-4" />
                             <span>Kelola Layanan</span>
                           </DropdownMenuItem>
-                          {/* Only show delete option if user has delete permission (role_id = "1") */}
                           {canDelete && (
                             <DropdownMenuItem 
                               onClick={() => handleDelete(client)}

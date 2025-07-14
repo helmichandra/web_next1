@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import {
   Card, CardContent, CardHeader, CardTitle,
 } from "@/components/ui/card";
@@ -29,6 +29,7 @@ interface DecodedToken {
   role_id: string;
   exp: number;
 }
+
 type User = {
   id: number;
   name: string;
@@ -59,7 +60,81 @@ type DeleteConfirmation = {
   user: User | null;
 };
 
-// Custom hook for token management
+// Cache interface - Fixed: Replace 'any' with proper types
+interface CacheEntry<T = unknown> {
+  data: T;
+  timestamp: number;
+  expiresAt: number;
+}
+
+// Cache manager class - Fixed: Replace 'any' with generic types
+class CacheManager {
+  private cache: Map<string, CacheEntry> = new Map();
+  private defaultTTL = 5 * 60 * 1000; // 5 minutes
+
+  set<T>(key: string, data: T, ttl: number = this.defaultTTL): void {
+    const now = Date.now();
+    this.cache.set(key, {
+      data,
+      timestamp: now,
+      expiresAt: now + ttl
+    });
+  }
+
+  get<T>(key: string): T | null {
+    const entry = this.cache.get(key);
+    if (!entry) return null;
+
+    if (Date.now() > entry.expiresAt) {
+      this.cache.delete(key);
+      return null;
+    }
+
+    return entry.data as T;
+  }
+
+  invalidate(pattern?: string): void {
+    if (!pattern) {
+      this.cache.clear();
+      return;
+    }
+
+    const keysToDelete = Array.from(this.cache.keys()).filter(key => 
+      key.includes(pattern)
+    );
+    
+    keysToDelete.forEach(key => this.cache.delete(key));
+  }
+
+  has(key: string): boolean {
+    const entry = this.cache.get(key);
+    return entry?.expiresAt !== undefined && Date.now() <= entry.expiresAt;
+  }
+
+  size(): number {
+    return this.cache.size;
+  }
+
+  // Clean expired entries
+  cleanup(): void {
+    const now = Date.now();
+    for (const [key, entry] of this.cache.entries()) {
+      if (now > entry.expiresAt) {
+        this.cache.delete(key);
+      }
+    }
+  }
+}
+
+// Global cache instance
+const cache = new CacheManager();
+
+// Cleanup expired cache entries every 5 minutes
+setInterval(() => {
+  cache.cleanup();
+}, 5 * 60 * 1000);
+
+// Custom hook for token management with caching
 const useAuthToken = () => {
   const [token, setToken] = useState<string | null>(null);
   const [userRoleId, setUserRoleId] = useState<string | null>(null);
@@ -68,6 +143,16 @@ const useAuthToken = () => {
   useEffect(() => {
     setIsClient(true);
     if (typeof window !== 'undefined') {
+      // Try to get from cache first
+      const cachedToken = cache.get<string>('auth_token');
+      const cachedRoleId = cache.get<string>('user_role_id');
+      
+      if (cachedToken && cachedRoleId) {
+        setToken(cachedToken);
+        setUserRoleId(cachedRoleId);
+        return;
+      }
+
       const storedToken = localStorage.getItem("token");
       setToken(storedToken);
       
@@ -76,6 +161,10 @@ const useAuthToken = () => {
         try {
           const decoded = jwtDecode<DecodedToken>(storedToken);
           setUserRoleId(decoded.role_id);
+          
+          // Cache the token and role_id
+          cache.set('auth_token', storedToken, 30 * 60 * 1000); // 30 minutes
+          cache.set('user_role_id', decoded.role_id, 30 * 60 * 1000);
         } catch (error) {
           console.error('Failed to decode token for role:', error);
         }
@@ -85,6 +174,29 @@ const useAuthToken = () => {
 
   return { token, userRoleId, isClient };
 };
+
+// Custom hook for debounced search
+const useDebounce = (value: string, delay: number) => {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+
+  return debouncedValue;
+};
+
+// Define proper types for cached data
+interface CachedUsersData {
+  users: User[];
+  total: number;
+}
 
 export default function UserPage() {
   const [search, setSearch] = useState("");
@@ -100,11 +212,15 @@ export default function UserPage() {
   });
   const { token, userRoleId, isClient } = useAuthToken();
 
+  // Debounced search value
+  const debouncedSearch = useDebounce(search, 500);
+
   const canDelete = userRoleId === "1";
 
   const getRowNumber = (index: number): number => {
     return (pagination.page - 1) * pagination.limit + index + 1;
   };
+
   const [pagination, setPagination] = useState<PaginationState>({
     page: 1,
     limit: 10,
@@ -116,22 +232,28 @@ export default function UserPage() {
     sort: "desc"
   });
 
-
-  const buildApiUrl = (): string => {
+  // Memoized API URL builder
+  const buildApiUrl = useMemo((): string => {
     const params = new URLSearchParams();
     params.append("page", pagination.page.toString());
     params.append("limit", pagination.limit.toString());
     params.append("order", sortConfig.order);
     params.append("sort", sortConfig.sort);
-    if (search.trim()) params.append("search", search.trim());
+    if (debouncedSearch.trim()) params.append("search", debouncedSearch.trim());
 
     return `/api/users?${params.toString()}`;
-  };
+  }, [pagination.page, pagination.limit, sortConfig.order, sortConfig.sort, debouncedSearch]);
 
-  const clearMessages = () => {
+  // Generate cache key for API requests
+  const getCacheKey = useCallback((url: string): string => {
+    return `users_${url}`;
+  }, []);
+
+  const clearMessages = useCallback(() => {
     setError("");
     setSuccessMessage("");
-  };
+  }, []);
+
   useEffect(() => {
     const storedToken = localStorage.getItem('token');
     
@@ -147,27 +269,31 @@ export default function UserPage() {
       if (decoded.exp && decoded.exp < Date.now() / 1000) {
         console.warn('Token has expired');
         localStorage.removeItem('token');
+        cache.invalidate(); // Clear all cache when token expires
         router.push('/auth/sign-in');
         return;
       }
+      
       const timeout = setTimeout(() => {
         toast.warning("Sesi Anda telah habis. Silakan login kembali.");
         localStorage.removeItem('token');
+        cache.invalidate(); // Clear all cache when session expires
         setTimeout(() => {
           router.push('/auth/sign-in');
-        }, 2000); // beri waktu 2 detik untuk tampilkan toast
-      }, 60 * 60 * 1000); // 30 menit
+        }, 2000);
+      }, 60 * 60 * 1000); // 1 hour
   
       return () => clearTimeout(timeout); 
 
     } catch (error) {
       console.error('Failed to decode token:', error);
       localStorage.removeItem('token');
+      cache.invalidate(); // Clear all cache on token error
       router.push('/auth/sign-in');
     }
   }, [router]);
 
-  const handleApiError = (response: Response, defaultMessage: string): string => {
+  const handleApiError = useCallback((response: Response, defaultMessage: string): string => {
     const statusMessages: Record<number, string> = {
       401: "Sesi telah berakhir, silakan login kembali",
       403: "Anda tidak memiliki izin untuk mengakses resource ini",
@@ -177,121 +303,133 @@ export default function UserPage() {
     };
 
     return statusMessages[response.status] || `${defaultMessage} (status: ${response.status})`;
-  };
+  }, []);
 
-  useEffect(() => {
-    if (!isClient) return;
+  // Cached fetch function
+  const fetchUsers = useCallback(async () => {
+    if (!token) {
+      setError("Token tidak ditemukan, silakan login kembali");
+      return;
+    }
 
-    const fetchUsers = async () => {
-      setIsLoading(true);
-      clearMessages();
+    const apiUrl = buildApiUrl;
+    const cacheKey = getCacheKey(apiUrl);
+    
+    // Check cache first - Fixed: Use proper typing
+    const cachedData = cache.get<CachedUsersData>(cacheKey);
+    if (cachedData && !isLoading) {
+      setUsers(cachedData.users);
+      setPagination(prev => ({
+        ...prev,
+        total: cachedData.total
+      }));
+      return;
+    }
 
-      if (!token) {
-        setError("Token tidak ditemukan, silakan login kembali");
-        setIsLoading(false);
+    setIsLoading(true);
+    clearMessages();
+
+    const startTime = Date.now();
+
+    try {
+      console.log('Fetching from API:', apiUrl);
+      const response = await fetch(apiUrl, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "X-Api-Key": "X-Secret-Key",
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        const errorMessage = handleApiError(response, "Gagal memuat data pengguna");
+        setError(errorMessage);
+        setUsers([]);
         return;
       }
 
-      const startTime = Date.now();
+      const json = await response.json();
+      if (json.code === 200 && json.data) {
+        const usersData = json.data.data || [];
+        
+        setUsers(usersData);
+        
+        // Calculate total for pagination
+        const newTotal = usersData.length < pagination.limit 
+          ? (pagination.page - 1) * pagination.limit + usersData.length
+          : Math.max(pagination.total, pagination.page * pagination.limit + 1);
+        
+        setPagination(prev => ({
+          ...prev,
+          total: newTotal
+        }));
 
-      try {
-        const apiUrl = buildApiUrl();
-        console.log(apiUrl);
-        const response = await fetch(apiUrl, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "X-Api-Key": "X-Secret-Key",
-            "Content-Type": "application/json",
-          },
-        });
-
-        if (!response.ok) {
-          const errorMessage = handleApiError(response, "Gagal memuat data pengguna");
-          setError(errorMessage);
-          setUsers([]);
-          return;
-        }
-
-        const json = await response.json();
-        if (json.code === 200 && json.data) {
-          const usersData = json.data.data || [];
-          
-          setUsers(usersData);
-          
-          // ✅ PERBAIKAN PAGINATION: Logika yang sama dengan client-list
-          setPagination(prev => {
-            // Jika data yang dikembalikan kurang dari limit, berarti ini halaman terakhir
-            if (usersData.length < prev.limit) {
-              return {
-                ...prev,
-                total: (prev.page - 1) * prev.limit + usersData.length
-              };
-            } else {
-              // Jika data sama dengan limit, asumsi masih ada data lagi
-              // Set total lebih besar untuk memungkinkan next page
-              return {
-                ...prev,
-                total: Math.max(prev.total, prev.page * prev.limit + 1)
-              };
-            }
-          });
-        } else {
-          setError(json.message || "Gagal memuat data pengguna");
-          setUsers([]);
-        }
-      } catch (error) {
-        console.error("Error fetching users:", error);
-        if (error instanceof TypeError && error.message.includes('fetch')) {
-          setError("Tidak dapat terhubung ke server. Periksa koneksi internet Anda");
-        } else {
-          setError(error instanceof Error ? error.message : "Gagal memuat data pengguna");
-        }
+        // Cache the results for 2 minutes - Fixed: Use proper typing
+        const cacheData: CachedUsersData = {
+          users: usersData,
+          total: newTotal
+        };
+        cache.set(cacheKey, cacheData, 2 * 60 * 1000);
+        
+      } else {
+        setError(json.message || "Gagal memuat data pengguna");
         setUsers([]);
-      } finally {
-        const elapsed = Date.now() - startTime;
-        const delay = Math.max(1000 - elapsed, 0);
-        setTimeout(() => {
-          setIsLoading(false);
-        }, delay);
       }
-    };
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        setError("Tidak dapat terhubung ke server. Periksa koneksi internet Anda");
+      } else {
+        setError(error instanceof Error ? error.message : "Gagal memuat data pengguna");
+      }
+      setUsers([]);
+    } finally {
+      const elapsed = Date.now() - startTime;
+      const delay = Math.max(500 - elapsed, 0); // Reduced minimum delay
+      setTimeout(() => {
+        setIsLoading(false);
+      }, delay);
+    }
+  }, [token, buildApiUrl, getCacheKey, handleApiError, clearMessages, pagination.limit, pagination.page, pagination.total, isLoading]);
 
-    const debounceTimer = setTimeout(() => {
-      fetchUsers();
-    }, 500);
+  useEffect(() => {
+    if (!isClient) return;
+    fetchUsers();
+  }, [isClient, fetchUsers]);
 
-    return () => clearTimeout(debounceTimer);
-  }, [search, pagination.page, pagination.limit, sortConfig.order, sortConfig.sort, token, isClient]);
-
-  const handlePageChange = (newPage: number) => {
+  const handlePageChange = useCallback((newPage: number) => {
     setPagination(prev => ({ ...prev, page: newPage }));
-  };
+  }, []);
 
-  const handleLimitChange = (newLimit: number) => {
+  const handleLimitChange = useCallback((newLimit: number) => {
     setPagination(prev => ({
       ...prev,
       limit: newLimit,
       page: 1
     }));
-  };
+    // Invalidate cache when limit changes
+    cache.invalidate('users_');
+  }, []);
 
-  const handleSearchChange = (value: string) => {
+  const handleSearchChange = useCallback((value: string) => {
     setSearch(value);
     setPagination(prev => ({ ...prev, page: 1 }));
-  };
+    // Invalidate cache when search changes
+    cache.invalidate('users_');
+  }, []);
 
-  const handleEdit = (user: User) => {
+  const handleEdit = useCallback((user: User) => {
     router.push(`/dashboard/edit-user/${user.id}`);
-  };
+  }, [router]);
 
-  const handleDelete = (user: User) => {
+  const handleDelete = useCallback((user: User) => {
     setDeleteConfirmation({
       show: true,
       user: user,
     });
-  };
+  }, []);
 
-  const confirmDelete = async () => {
+  const confirmDelete = useCallback(async () => {
     if (!deleteConfirmation.user || !token) return;
 
     const userId = deleteConfirmation.user.id;
@@ -320,6 +458,9 @@ export default function UserPage() {
         setUsers(prevUsers => prevUsers.filter(u => u.id !== userId));
         setSuccessMessage(`Pengguna ${deleteConfirmation.user.name} berhasil dihapus`);
         
+        // Invalidate cache after successful deletion
+        cache.invalidate('users_');
+        
         // Auto-hide success message after 3 seconds
         setTimeout(() => setSuccessMessage(""), 3000);
       } else {
@@ -338,23 +479,24 @@ export default function UserPage() {
       setDeleteLoading(null);
       setDeleteConfirmation({ show: false, user: null });
     }
-  };
+  }, [deleteConfirmation.user, token, clearMessages, handleApiError]);
 
-  const handleSort = (field: OrderField) => {
+  const handleSort = useCallback((field: OrderField) => {
     setSortConfig(prev => ({
       order: field,
       sort: prev.order === field ? (prev.sort === "asc" ? "desc" : "asc") : "desc"
     }));
     setPagination(prev => ({ ...prev, page: 1 }));
-  };
+    // Invalidate cache when sort changes
+    cache.invalidate('users_');
+  }, []);
 
-  const cancelDelete = () => {
+  const cancelDelete = useCallback(() => {
     setDeleteConfirmation({ show: false, user: null });
-  };
+  }, []);
 
-
-
-  const getRoleBadge = (roleName: string) => {
+  // Memoized role badge component - Fixed: Define proper React component
+  const getRoleBadge = useCallback((roleName: string) => {
     const isAdmin = roleName.toLowerCase().includes("admin");
     return (
       <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
@@ -366,9 +508,10 @@ export default function UserPage() {
         {roleName}
       </span>
     );
-  };
+  }, []);
 
-  const SortIndicator = ({ field }: { field: OrderField }) => {
+  // Memoized sort indicator - Fixed: Define proper React component
+  const SortIndicator = useCallback(({ field }: { field: OrderField }) => {
     if (sortConfig.order !== field) return null;
     return (
       <span 
@@ -378,13 +521,17 @@ export default function UserPage() {
         {sortConfig.sort === "asc" ? "↑" : "↓"}
       </span>
     );
-  };
+  }, [sortConfig.order, sortConfig.sort]);
 
-  const hasNextPage = users.length === pagination.limit;
-  const hasPrevPage = pagination.page > 1;
-  const startItem = (pagination.page - 1) * pagination.limit + 1;
-  const endItem = startItem + users.length - 1;
+  // Memoized pagination info
+  const paginationInfo = useMemo(() => {
+    const hasNextPage = users.length === pagination.limit;
+    const hasPrevPage = pagination.page > 1;
+    const startItem = (pagination.page - 1) * pagination.limit + 1;
+    const endItem = startItem + users.length - 1;
 
+    return { hasNextPage, hasPrevPage, startItem, endItem };
+  }, [users.length, pagination.limit, pagination.page]);
 
   // Don't render until client-side hydration is complete
   if (!isClient) {
@@ -559,7 +706,7 @@ export default function UserPage() {
               ) : (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center text-sm text-gray-500 py-8">
-                    {search
+                    {debouncedSearch
                       ? "Pengguna dengan kata kunci tersebut tidak ditemukan."
                       : "Tidak ada data pengguna ditemukan."}
                   </TableCell>
@@ -572,14 +719,14 @@ export default function UserPage() {
         {users.length > 0 && (
           <div className="flex flex-col sm:flex-row justify-between items-center mt-4 gap-4">
             <div className="text-sm text-gray-600">
-              Halaman {pagination.page} - Menampilkan {startItem} - {endItem} pengguna
+              Halaman {pagination.page} - Menampilkan {paginationInfo.startItem} - {paginationInfo.endItem} pengguna
             </div>
             <div className="flex space-x-1">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => handlePageChange(1)}
-                disabled={!hasPrevPage}
+                disabled={!paginationInfo.hasPrevPage}
                 aria-label="Halaman pertama"
                 className="cursor-pointer"
               >
@@ -589,7 +736,7 @@ export default function UserPage() {
                 variant="outline"
                 size="sm"
                 onClick={() => handlePageChange(pagination.page - 1)}
-                disabled={!hasPrevPage}
+                disabled={!paginationInfo.hasPrevPage}
                 aria-label="Halaman sebelumnya"
                 className="cursor-pointer"
               >
@@ -607,7 +754,7 @@ export default function UserPage() {
               </Button>
               
               {/* Tampilkan halaman selanjutnya jika ada */}
-              {hasNextPage && (
+              {paginationInfo.hasNextPage && (
                 <Button
                   variant="outline"
                   size="sm"
@@ -623,7 +770,7 @@ export default function UserPage() {
                 variant="outline"
                 size="sm"
                 onClick={() => handlePageChange(pagination.page + 1)}
-                disabled={!hasNextPage}
+                disabled={!paginationInfo.hasNextPage}
                 aria-label="Halaman selanjutnya"
                 className="cursor-pointer"
               >
@@ -633,7 +780,7 @@ export default function UserPage() {
                 variant="outline"
                 size="sm"
                 onClick={() => handlePageChange(pagination.page + 1)}
-                disabled={!hasNextPage}
+                disabled={!paginationInfo.hasNextPage}
                 aria-label="Halaman terakhir"
                 className="cursor-pointer"
               >

@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { 
   Table, 
   TableBody, 
@@ -16,7 +17,7 @@ import {
   TableHeader, 
   TableRow 
 } from '@/components/ui/table';
-import { Calendar, Filter, RefreshCw, FileText, Users, Settings, Download } from 'lucide-react';
+import { Calendar, Filter, RefreshCw, FileText, Users, Settings, Download, X, ChevronDown } from 'lucide-react';
 import { jwtDecode } from 'jwt-decode';
 import { toast } from 'sonner';
 import { useRouter } from "next/navigation";
@@ -28,6 +29,7 @@ interface DecodedToken {
   role: string;
   exp: number;
 }
+
 // Types
 interface ServiceReport {
   id: number;
@@ -101,6 +103,10 @@ const ReportPreview = () => {
   const [reports, setReports] = useState<ServiceReport[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [serviceTypes, setServiceTypes] = useState<ServiceType[]>([]);
+  const [selectedClientIds, setSelectedClientIds] = useState<string[]>([]);
+  const [selectedServiceTypeIds, setSelectedServiceTypeIds] = useState<string[]>([]);
+  const [clientDropdownOpen, setClientDropdownOpen] = useState(false);
+  const [serviceTypeDropdownOpen, setServiceTypeDropdownOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [filtersLoading, setFiltersLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);
@@ -118,6 +124,7 @@ const ReportPreview = () => {
     'Content-Type': 'application/json',
   };
   const router = useRouter();
+
   useEffect(() => {
     const storedToken = localStorage.getItem('token');
     
@@ -257,6 +264,94 @@ const ReportPreview = () => {
     setFilters(prev => ({ ...prev, [key]: value }));
   };
 
+  // Handle client selection
+  const handleClientSelect = (clientId: string, checked: boolean) => {
+    let newSelectedIds: string[];
+    
+    if (checked) {
+      newSelectedIds = [...selectedClientIds, clientId];
+    } else {
+      newSelectedIds = selectedClientIds.filter(id => id !== clientId);
+    }
+    
+    setSelectedClientIds(newSelectedIds);
+    
+    // Update filters
+    const clientIdsString = newSelectedIds.length > 0 ? newSelectedIds.join(',') : 'all';
+    handleFilterChange('client_ids', clientIdsString);
+  };
+
+  // Handle select all clients
+  const handleSelectAllClients = (checked: boolean) => {
+    if (checked) {
+      const allClientIds = clients.map(client => client.id.toString());
+      setSelectedClientIds(allClientIds);
+      handleFilterChange('client_ids', allClientIds.join(','));
+    } else {
+      setSelectedClientIds([]);
+      handleFilterChange('client_ids', 'all');
+    }
+  };
+
+  // Remove selected client
+  const removeSelectedClient = (clientId: string) => {
+    handleClientSelect(clientId, false);
+  };
+
+  // Get selected clients display text
+  const getSelectedClientsText = () => {
+    if (selectedClientIds.length === 0) return 'All Clients';
+    if (selectedClientIds.length === 1) {
+      const client = clients.find(c => c.id.toString() === selectedClientIds[0]);
+      return client?.name || 'Selected Client';
+    }
+    return `${selectedClientIds.length} clients selected`;
+  };
+
+  // Handle service type selection
+  const handleServiceTypeSelect = (serviceTypeId: string, checked: boolean) => {
+    let newSelectedIds: string[];
+    
+    if (checked) {
+      newSelectedIds = [...selectedServiceTypeIds, serviceTypeId];
+    } else {
+      newSelectedIds = selectedServiceTypeIds.filter(id => id !== serviceTypeId);
+    }
+    
+    setSelectedServiceTypeIds(newSelectedIds);
+    
+    // Update filters
+    const serviceTypeIdsString = newSelectedIds.length > 0 ? newSelectedIds.join(',') : 'all';
+    handleFilterChange('service_type_ids', serviceTypeIdsString);
+  };
+
+  // Handle select all service types
+  const handleSelectAllServiceTypes = (checked: boolean) => {
+    if (checked) {
+      const allServiceTypeIds = serviceTypes.map(serviceType => serviceType.id.toString());
+      setSelectedServiceTypeIds(allServiceTypeIds);
+      handleFilterChange('service_type_ids', allServiceTypeIds.join(','));
+    } else {
+      setSelectedServiceTypeIds([]);
+      handleFilterChange('service_type_ids', 'all');
+    }
+  };
+
+  // Remove selected service type
+  const removeSelectedServiceType = (serviceTypeId: string) => {
+    handleServiceTypeSelect(serviceTypeId, false);
+  };
+
+  // Get selected service types display text
+  const getSelectedServiceTypesText = () => {
+    if (selectedServiceTypeIds.length === 0) return 'All Services';
+    if (selectedServiceTypeIds.length === 1) {
+      const serviceType = serviceTypes.find(st => st.id.toString() === selectedServiceTypeIds[0]);
+      return serviceType?.name || 'Selected Service';
+    }
+    return `${selectedServiceTypeIds.length} services selected`;
+  };
+
   // Format currency
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('id-ID', {
@@ -300,7 +395,6 @@ const ReportPreview = () => {
               <p className="text-sm text-gray-600">Lihat dan analisis laporan layanan</p>
             </div>
           </div>
-   
         </div>
 
         {/* Filters Card */}
@@ -350,7 +444,7 @@ const ReportPreview = () => {
                 )}
               </div>
 
-              {/* Client Filter */}
+              {/* Multi-Select Client Filter */}
               <div className="space-y-2">
                 <Label className="text-sm font-medium flex items-center">
                   <Users className="h-4 w-4 mr-1" />
@@ -359,23 +453,50 @@ const ReportPreview = () => {
                 {filtersLoading ? (
                   <Skeleton className="h-10 w-full" />
                 ) : (
-                  <Select value={filters.client_ids} onValueChange={(value) => handleFilterChange('client_ids', value)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select client" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Clients</SelectItem>
-                      {clients.map((client) => (
-                        <SelectItem key={client.id} value={client.id.toString()}>
-                          {client.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="relative">
+                    <Button
+                      variant="outline"
+                      className="w-full justify-between text-left font-normal"
+                      onClick={() => setClientDropdownOpen(!clientDropdownOpen)}
+                    >
+                      <span className="truncate">{getSelectedClientsText()}</span>
+                      <ChevronDown className="h-4 w-4 opacity-50" />
+                    </Button>
+                    
+                    {clientDropdownOpen && (
+                      <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                        {/* Select All Option */}
+                        <div className="flex items-center space-x-2 p-2 hover:bg-gray-50 border-b">
+                          <Checkbox
+                            id="select-all"
+                            checked={selectedClientIds.length === clients.length}
+                            onCheckedChange={handleSelectAllClients}
+                          />
+                          <label htmlFor="select-all" className="text-sm font-medium cursor-pointer">
+                            Select All
+                          </label>
+                        </div>
+                        
+                        {/* Client Options */}
+                        {clients.map((client) => (
+                          <div key={client.id} className="flex items-center space-x-2 p-2 hover:bg-gray-50">
+                            <Checkbox
+                              id={`client-${client.id}`}
+                              checked={selectedClientIds.includes(client.id.toString())}
+                              onCheckedChange={(checked) => handleClientSelect(client.id.toString(), checked as boolean)}
+                            />
+                            <label htmlFor={`client-${client.id}`} className="text-sm cursor-pointer flex-1">
+                              {client.name}
+                            </label>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
 
-              {/* Service Type Filter */}
+              {/* Multi-Select Service Type Filter */}
               <div className="space-y-2">
                 <Label className="text-sm font-medium flex items-center">
                   <Settings className="h-4 w-4 mr-1" />
@@ -384,19 +505,46 @@ const ReportPreview = () => {
                 {filtersLoading ? (
                   <Skeleton className="h-10 w-full" />
                 ) : (
-                  <Select value={filters.service_type_ids} onValueChange={(value) => handleFilterChange('service_type_ids', value)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select service" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Services</SelectItem>
-                      {serviceTypes.map((serviceType) => (
-                        <SelectItem key={serviceType.id} value={serviceType.id.toString()}>
-                          {serviceType.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="relative">
+                    <Button
+                      variant="outline"
+                      className="w-full justify-between text-left font-normal"
+                      onClick={() => setServiceTypeDropdownOpen(!serviceTypeDropdownOpen)}
+                    >
+                      <span className="truncate">{getSelectedServiceTypesText()}</span>
+                      <ChevronDown className="h-4 w-4 opacity-50" />
+                    </Button>
+                    
+                    {serviceTypeDropdownOpen && (
+                      <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                        {/* Select All Option */}
+                        <div className="flex items-center space-x-2 p-2 hover:bg-gray-50 border-b">
+                          <Checkbox
+                            id="select-all-service-types"
+                            checked={selectedServiceTypeIds.length === serviceTypes.length}
+                            onCheckedChange={handleSelectAllServiceTypes}
+                          />
+                          <label htmlFor="select-all-service-types" className="text-sm font-medium cursor-pointer">
+                            Select All
+                          </label>
+                        </div>
+                        
+                        {/* Service Type Options */}
+                        {serviceTypes.map((serviceType) => (
+                          <div key={serviceType.id} className="flex items-center space-x-2 p-2 hover:bg-gray-50">
+                            <Checkbox
+                              id={`service-type-${serviceType.id}`}
+                              checked={selectedServiceTypeIds.includes(serviceType.id.toString())}
+                              onCheckedChange={(checked) => handleServiceTypeSelect(serviceType.id.toString(), checked as boolean)}
+                            />
+                            <label htmlFor={`service-type-${serviceType.id}`} className="text-sm cursor-pointer flex-1">
+                              {serviceType.name}
+                            </label>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
 
@@ -417,10 +565,56 @@ const ReportPreview = () => {
               </div>
             </div>
 
+            {/* Selected Clients Display */}
+            {selectedClientIds.length > 0 && (
+              <div className="flex flex-wrap gap-2 p-3 bg-blue-50 rounded-lg">
+                <span className="text-sm font-medium text-blue-800">Selected clients:</span>
+                {selectedClientIds.map((clientId) => {
+                  const client = clients.find(c => c.id.toString() === clientId);
+                  return (
+                    <Badge key={clientId} variant="secondary" className="bg-blue-100 text-blue-800">
+                      {client?.name}
+                      <button
+                        onClick={() => removeSelectedClient(clientId)}
+                        className="ml-1 hover:text-blue-600"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Selected Service Types Display */}
+            {selectedServiceTypeIds.length > 0 && (
+              <div className="flex flex-wrap gap-2 p-3 bg-green-50 rounded-lg">
+                <span className="text-sm font-medium text-green-800">Selected services:</span>
+                {selectedServiceTypeIds.map((serviceTypeId) => {
+                  const serviceType = serviceTypes.find(st => st.id.toString() === serviceTypeId);
+                  return (
+                    <Badge key={serviceTypeId} variant="secondary" className="bg-green-100 text-green-800">
+                      {serviceType?.name}
+                      <button
+                        onClick={() => removeSelectedServiceType(serviceTypeId)}
+                        className="ml-1 hover:text-green-600"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  );
+                })}
+              </div>
+            )}
+
             <div className="flex justify-end space-x-3 pt-2">
               <Button
                 variant="outline"
-                onClick={() => setFilters({ start_date: '', end_date: '', client_ids: 'all', service_type_ids: 'all', status_id: '1' })}
+                onClick={() => {
+                  setFilters({ start_date: '', end_date: '', client_ids: 'all', service_type_ids: 'all', status_id: '1' });
+                  setSelectedClientIds([]);
+                  setSelectedServiceTypeIds([]);
+                }}
                 className="text-sm"
               >
                 Reset

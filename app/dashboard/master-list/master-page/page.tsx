@@ -121,6 +121,21 @@ type ApiResponse<T> = {
       };
     };
   };
+  type TabDataMap = {
+    'client-type': ClientType[];
+    'client-status': ClientStatus[];
+    'service-types': ServiceType[];
+    'vendor': Vendors[];
+    'service-categories': ServiceCategories[];
+  };
+  
+  type CacheEntry<T> = {
+    data: T;
+    page: number;
+    limit: number;
+    total: number;
+  };
+
 
 // Custom hook for token management
 const useAuthToken = () => {
@@ -139,7 +154,8 @@ const useAuthToken = () => {
 export default function MasterPage() {
   const [activeTab, setActiveTab] = useState<TabType>("client-type");
   const [search, setSearch] = useState("");
-  
+  const [dataCache, setDataCache] = useState<Map<string, CacheEntry<TabDataMap[TabType]>>>(new Map());
+
   // Data states
   const [clientTypes, setClientTypes] = useState<ClientType[]>([]);
   const [clientStatuses, setClientStatuses] = useState<ClientStatus[]>([]);
@@ -157,6 +173,16 @@ export default function MasterPage() {
     item: null,
     type: "client-type",
   });
+  const generateCacheKey = (tabType: TabType): string => {
+    return JSON.stringify({
+      tabType,
+      page: pagination.page,
+      limit: pagination.limit,
+      order: sortConfig.order,
+      sort: sortConfig.sort,
+      search: search.trim(),
+    });
+  };
   
   const [pagination, setPagination] = useState<PaginationState>({
     page: 1,
@@ -313,11 +339,43 @@ export default function MasterPage() {
     }
   
     const startTime = Date.now();
+    const cacheKey = generateCacheKey(tabType);
+    const cached = dataCache.get(cacheKey) as CacheEntry<TabDataMap[typeof tabType]> | undefined;
   
+    if (cached) {
+      switch (tabType) {
+        case 'client-type':
+          setClientTypes(cached.data as ClientType[]);
+          break;
+        case 'client-status':
+          setClientStatuses(cached.data as ClientStatus[]);
+          break;
+        case 'service-types':
+          setServiceTypes(cached.data as ServiceType[]);
+          break;
+        case 'vendor':
+          setVendors(cached.data as Vendors[]);
+          break;
+        case 'service-categories':
+          setServiceCategories(cached.data as ServiceCategories[]);
+          break;
+      }
+  
+      setPagination(prev => ({
+        ...prev,
+        page: cached.page,
+        limit: cached.limit,
+        total: cached.total,
+      }));
+  
+      setIsLoading(false);
+      return;
+    }
+  
+    // Jika cache tidak ada, fetch dari API
     try {
       const apiUrl = buildApiUrl(tabType);
-      console.log("API URL:", apiUrl);
-      
+  
       const response = await fetch(apiUrl, {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -325,34 +383,18 @@ export default function MasterPage() {
           "Content-Type": "application/json",
         },
       });
-      
+  
       if (!response.ok) {
         const errorMessage = handleApiError(response, "Gagal memuat data");
         setError(errorMessage);
         return;
       }
-      
+  
       const json: ApiResponse<ClientType | ClientStatus | ServiceType | Vendors | ServiceCategories> = await response.json();
-      
-      // DEBUG: Log the raw response
-      console.log("Raw API Response:", json);
-      console.log("Raw Data:", json.data.data);
-      
       if (json.code === 200 && json.data.data) {
         const data = json.data.data;
-        
-        // DEBUG: Log individual items for service-types
-        if (tabType === 'service-types') {
-          console.log("Service Types Data:");
-       
-            console.log("=== DEBUG SERVICE TYPES ===");
-            console.log("Raw data from API:", data);
-            console.log("First item structure:", data[0]);
-            console.log("All properties of first item:", Object.keys(data[0] || {}));
-          
-        }
-        
-        // Update data state
+  
+        // Update state
         switch (tabType) {
           case 'client-type':
             setClientTypes(data as ClientType[]);
@@ -369,20 +411,31 @@ export default function MasterPage() {
           case 'service-categories':
             setServiceCategories(data as ServiceCategories[]);
             break;
-          default:
-            break;
         }
-        
-        // Update pagination from API response
+  
         setPagination(prev => ({
           ...prev,
           page: json.data.pagination.page,
           limit: json.data.pagination.limit,
-          total: json.data.pagination.offset + data.length + (data.length === json.data.pagination.limit ? 1 : 0)
+          total: json.data.pagination.offset + data.length + (data.length === json.data.pagination.limit ? 1 : 0),
         }));
+  
+        // Simpan ke cache
+        setDataCache(prev => {
+          const newCache = new Map(prev);
+          newCache.set(cacheKey, {
+            data: data as TabDataMap[typeof tabType],
+            page: json.data.pagination.page,
+            limit: json.data.pagination.limit,
+            total: json.data.pagination.offset + data.length + (data.length === json.data.pagination.limit ? 1 : 0),
+          });
+          return newCache;
+        });
+  
       } else {
         setError("Gagal memuat data");
       }
+  
     } catch (error) {
       console.error("Error fetching data:", error);
       if (error instanceof TypeError && error.message.includes('fetch')) {
@@ -398,6 +451,7 @@ export default function MasterPage() {
       }, delay);
     }
   };
+  
   
 
   useEffect(() => {

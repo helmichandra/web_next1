@@ -19,7 +19,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
     <html lang="id">
       <body className={inter.className}>
     <main
-      className={`${inter.className} min-h-screen w-full bg-cover bg-center flex items-center justify-center px-4 py-8`}
+      className={`${inter.className} min-h-screen w-full bg-cover bg-center flex items-center justify-center px-4 py-8 fixed`}
       style={{ backgroundImage: `url(${bgAuth.src})` }}
     >
       <div className="w-full max-w-[1154px] bg-white shadow-xl rounded-3xl overflow-hidden flex flex-col md:flex-row h-full md:h-[675px]">

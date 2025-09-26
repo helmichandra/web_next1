@@ -470,8 +470,8 @@ export default function MasterPage() {
         }));
   
         // Cache the result
-        const cacheEntry: CacheEntry<any> = {
-          data,
+        const cacheEntry: CacheEntry<TabDataMap[TabType]> = {
+          data: data as TabDataMap[TabType],
           page: currentPage,
           limit: limit,
           total: computedTotal,
@@ -512,7 +512,7 @@ export default function MasterPage() {
     }, 500);
 
     return () => clearTimeout(debounceTimer);
-  }, [search, pagination.page, pagination.limit, sortConfig.order, sortConfig.sort, token, isClient, activeTab]);
+  }, [search, pagination.page, pagination.limit, sortConfig.order, sortConfig.sort, token, isClient, activeTab, fetchData]);
 
   const handleTabChange = (tabId: TabType) => {
     setActiveTab(tabId);

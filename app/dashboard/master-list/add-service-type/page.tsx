@@ -277,7 +277,6 @@ export default function AddServiceType() {
     setIsSubmitting(true);
     clearMessages();
 
-    console.log("Form data being submitted:", formData); // Debug log
 
     try {
       const response = await fetch("/api/service_types", {
@@ -298,7 +297,6 @@ export default function AddServiceType() {
         }),
       });
 
-      console.log("API Response:", response); // Debug log
 
       if (!response.ok) {
         const errorMessage = handleApiError(response, "Gagal menambahkan service type");

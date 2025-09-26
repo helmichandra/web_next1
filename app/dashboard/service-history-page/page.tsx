@@ -13,21 +13,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { MoreVertical, Eye, Plus, Trash, AlertCircle, Users, Shield, BadgePlus, MessageCircleCode, Edit3, Filter } from "lucide-react";
+import { MoreVertical, Eye, Plus, Trash, AlertCircle, Users, Shield, BadgePlus, MessageCircleCode } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { jwtDecode } from 'jwt-decode';
 import { toast } from 'sonner';
+
 
 interface DecodedToken {
   id: string;
@@ -36,14 +29,13 @@ interface DecodedToken {
   role: string;
   exp: number;
 }
-
 type Service = {
   id: number;
   service_detail_name: string;
   client_id: number;
   client_name: string;
   service_type_id: number;
-  service_type_name: string;
+  service_name: string;
   vendor_id: number;
   vendor_name: string;
   domain_name?: string;
@@ -60,11 +52,6 @@ type Service = {
   end_date: string;
   handled_by: string;
   pic: string;
-  order_type: string;
-  renewal_service_id: number;
-  renewal_service_name: string | null;
-  service_category_id: number;
-  service_category_name: string;
   created_date: string;
   created_by: string;
   modified_date: string;
@@ -72,8 +59,7 @@ type Service = {
 };
 
 type SortDirection = "asc" | "desc";
-type OrderField = "client_id" | "service_detail_name" | "service_type_name" | "vendor_name" | "base_price" | "normal_price" | "discount_type" | "discount" | "final_price" | "status_name" | "start_date" | "end_date" | "handled_by" | "pic";
-type OrderTypeFilter = "ALL" | "NEW" | "RENEWAL";
+type OrderField = "id" | "client_id" | "client_name" | "service_name" | "vendor_name" | "base_price" | "normal_price" | "discount_type" | "discount" | "final_price" | "status_name" | "start_date" | "end_date" | "handled_by" | "pic";
 
 type PaginationState = {
   page: number;
@@ -91,73 +77,23 @@ type DeleteConfirmation = {
   service: Service | null;
 };
 
-type StatusEditDialog = {
-  show: boolean;
-  service: Service | null;
-  newStatus: number;
-};
-
-// Custom hook for token management - Updated version
+// Custom hook for token management
 const useAuthToken = () => {
   const [token, setToken] = useState<string | null>(null);
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
     setIsClient(true);
-    
-    // Add delay to ensure all cookies are loaded
-    setTimeout(() => {
-      // Get all cookies and log them for debugging
-      console.log('ServicesPage - All cookies:', document.cookie);
-      
-      // Try different possible cookie names
-      const tokenCookie = document.cookie
-        .split("; ")
-        .find(row => row.startsWith("token="))
-        ?.split("=")[1];
-      
-      const authCookie = document.cookie
-        .split("; ")
-        .find(row => row.startsWith("auth="))
-        ?.split("=")[1];
-      
-      const accessTokenCookie = document.cookie
-        .split("; ")
-        .find(row => row.startsWith("access_token="))
-        ?.split("=")[1];
-
-      // If no cookie token, try localStorage as fallback
-      const localToken = localStorage.getItem('token');
-      const localAuthToken = localStorage.getItem('authToken');
-      const localAccessToken = localStorage.getItem('access_token');
-      
-      const finalToken = tokenCookie || authCookie || accessTokenCookie || localToken || localAuthToken || localAccessToken;
-      
-      console.log('ServicesPage token check:', { 
-        tokenCookie: !!tokenCookie,
-        authCookie: !!authCookie,
-        accessTokenCookie: !!accessTokenCookie,
-        localToken: !!localToken,
-        localAuthToken: !!localAuthToken,
-        localAccessToken: !!localAccessToken,
-        finalToken: !!finalToken,
-        finalTokenLength: finalToken?.length || 0
-      });
-      
-      // If we found a token but it's not in the 'token' cookie, set it there for middleware
-      if (finalToken && !tokenCookie) {
-        console.log('ServicesPage: Setting token cookie for middleware compatibility');
-        document.cookie = `token=${finalToken}; path=/; max-age=${60 * 60 * 24 * 7}`; // 7 days
-      }
-      
-      setToken(finalToken || null);
-    }, 100);
+    if (typeof window !== 'undefined') {
+      setToken(localStorage.getItem("token"));
+    }
   }, []);
-
   return { token, isClient };
 };
 
-export default function ServicesPage() {
+
+
+export default function ServicesHistoryPage() {
   const [search, setSearch] = useState("");
   const [services, setServices] = useState<Service[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -167,25 +103,15 @@ export default function ServicesPage() {
   const searchParams = useSearchParams();
   const clientId = searchParams.get('clientId');
   const [deleteLoading, setDeleteLoading] = useState<number | null>(null);
-  const [statusUpdateLoading, setStatusUpdateLoading] = useState<number | null>(null);
   const [isMobile, setIsMobile] = useState(false);
-  const [orderTypeFilter, setOrderTypeFilter] = useState<OrderTypeFilter>("ALL");
 
   const [deleteConfirmation, setDeleteConfirmation] = useState<DeleteConfirmation>({
     show: false,
     service: null,
   });
-
-  const [statusEditDialog, setStatusEditDialog] = useState<StatusEditDialog>({
-    show: false,
-    service: null,
-    newStatus: 1,
-  });
-
   const getRowNumber = (index: number): number => {
     return (pagination.page - 1) * pagination.limit + index + 1;
   };
-
   const [pagination, setPagination] = useState<PaginationState>({
     page: 1,
     limit: 10,
@@ -193,15 +119,22 @@ export default function ServicesPage() {
   });
 
   const [sortConfig, setSortConfig] = useState<SortConfig>({
-    order: "service_detail_name",
+    order: "id",
     sort: "desc"
   });
+  const getTodayDate = (): string => {
+    const now = new Date(); // lokal
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, "0");
+    const d = String(now.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  };
 
   const { token, isClient } = useAuthToken();
-
   useEffect(() => {
     const checkDevice = () => {
       const width = window.innerWidth;
+      
       setIsMobile(width < 768);
     };
 
@@ -209,68 +142,17 @@ export default function ServicesPage() {
     window.addEventListener('resize', checkDevice);
     return () => window.removeEventListener('resize', checkDevice);
   }, []);
-
-  // Token validation useEffect - Updated version
-  useEffect(() => {
-    if (!isClient || !token) return;
-
-    try {
-      const decoded = jwtDecode<DecodedToken>(token);
-      
-      // Check if token has expired
-      if (decoded.exp && decoded.exp < Date.now() / 1000) {
-        console.warn('Token has expired');
-        // Clear both cookie and localStorage
-        document.cookie = 'token=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';
-        localStorage.removeItem('token');
-        router.push('/auth/sign-in');
-        return;
-      }
-      
-      const timeout = setTimeout(() => {
-        toast.warning("Sesi Anda telah habis. Silakan login kembali.");
-        // Clear both cookie and localStorage
-        document.cookie = 'token=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';
-        localStorage.removeItem('token');
-        setTimeout(() => {
-          router.push('/auth/sign-in');
-        }, 2000);
-      }, 60 * 60 * 1000);
-  
-      return () => clearTimeout(timeout); 
-
-    } catch (error) {
-      console.error('Failed to decode token:', error);
-      // Clear both cookie and localStorage
-      document.cookie = 'token=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';
-      localStorage.removeItem('token');
-      router.push('/auth/sign-in');
-    }
-  }, [router, token, isClient]);
-
-  // Separate useEffect for redirect when no token
-  useEffect(() => {
-    if (!isClient) return;
-    
-    const redirectTimer = setTimeout(() => {
-      if (!token) {
-        console.log('No token found in ServicesPage, redirecting to login...');
-        window.location.href = '/auth/sign-in';
-      }
-    }, 500);
-
-    return () => clearTimeout(redirectTimer);
-  }, [isClient, token]);
-
   const buildApiUrl = (): string => {
     const params = new URLSearchParams();
+    const overrideEnd = searchParams?.get("end_date");
+    params.set("end_date", overrideEnd || getTodayDate());
     params.append("page", pagination.page.toString());
     params.append("limit", pagination.limit.toString());
-    params.append("order_by", sortConfig.order);
-    params.append("sort_by", sortConfig.sort);
+    params.append("order", sortConfig.order);
+    params.append("sort", sortConfig.sort);
     if (search.trim()) params.append("search", search.trim());
+
     if (clientId) params.append("client_id", clientId);
-    if (orderTypeFilter !== "ALL") params.append("order_type", orderTypeFilter);
     return `/api/services?${params.toString()}`;
   };
 
@@ -290,6 +172,40 @@ export default function ServicesPage() {
 
     return statusMessages[response.status] || `${defaultMessage} (status: ${response.status})`;
   };
+  useEffect(() => {
+    const storedToken = localStorage.getItem('token');
+    
+    if (!storedToken) {
+        router.push('/auth/sign-in');
+        return;
+    }
+
+    try {
+      const decoded = jwtDecode<DecodedToken>(storedToken);
+      
+      // Cek apakah token sudah expired
+      if (decoded.exp && decoded.exp < Date.now() / 1000) {
+        console.warn('Token has expired');
+        localStorage.removeItem('token');
+        router.push('/auth/sign-in');
+        return;
+      }
+      const timeout = setTimeout(() => {
+        toast.warning("Sesi Anda telah habis. Silakan login kembali.");
+        localStorage.removeItem('token');
+        setTimeout(() => {
+          router.push('/auth/sign-in');
+        }, 2000); // beri waktu 2 detik untuk tampilkan toast
+      }, 60 * 60 * 1000); // 30 menit
+  
+      return () => clearTimeout(timeout); 
+
+    } catch (error) {
+      console.error('Failed to decode token:', error);
+      localStorage.removeItem('token');
+      router.push('/auth/sign-in');
+    }
+  }, [router]);
 
   useEffect(() => {
     if (!isClient) return;
@@ -372,7 +288,7 @@ export default function ServicesPage() {
     }, 500);
 
     return () => clearTimeout(debounceTimer);
-  }, [search, pagination.page, pagination.limit, sortConfig.order, sortConfig.sort, orderTypeFilter, token, isClient]);
+  }, [search, pagination.page, pagination.limit, sortConfig.order, sortConfig.sort, token, isClient]);
 
   const handlePageChange = (newPage: number) => {
     setPagination(prev => ({ ...prev, page: newPage }));
@@ -391,31 +307,10 @@ export default function ServicesPage() {
     setPagination(prev => ({ ...prev, page: 1 }));
   };
 
-  const handleOrderTypeFilterChange = (value: OrderTypeFilter) => {
-    setOrderTypeFilter(value);
-    setPagination(prev => ({ ...prev, page: 1 }));
-  };
-
-  const handleEdit = (service: Service) => {
-    router.push(`/dashboard/edit-service/${service.id}`);
-  };
-
-  const handleMessage = (service: Service) => {
-    router.push(`/dashboard/send-message/${service.id}`);
-  };
-
   const handleDelete = (service: Service) => {
     setDeleteConfirmation({
       show: true,
       service: service,
-    });
-  };
-
-  const handleStatusEdit = (service: Service) => {
-    setStatusEditDialog({
-      show: true,
-      service: service,
-      newStatus: service.status,
     });
   };
 
@@ -468,71 +363,6 @@ export default function ServicesPage() {
     }
   };
 
-  const confirmStatusUpdate = async () => {
-    if (!statusEditDialog.service || !token) return;
-
-    const serviceId = statusEditDialog.service.id;
-    setStatusUpdateLoading(serviceId);
-    clearMessages();
-
-    try {
-      const response = await fetch(`/api/services/id/${serviceId}`, {
-        method: "PUT",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "X-Api-Key": "X-Secret-Key",
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          status: statusEditDialog.newStatus,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorMessage = handleApiError(response, "Gagal mengupdate status service");
-        setError(errorMessage);
-        return;
-      }
-
-      const json = await response.json();
-
-      if (json.code === 200) {
-        // Update the service in the list
-        setServices(prevServices => 
-          prevServices.map(s => 
-            s.id === serviceId 
-              ? { 
-                  ...s, 
-                  status: statusEditDialog.newStatus,
-                  status_name: statusEditDialog.newStatus === 1 ? "Aktif" : "Tidak Aktif"
-                }
-              : s
-          )
-        );
-        
-        const statusText = statusEditDialog.newStatus === 1 ? "Aktif" : "Tidak Aktif";
-        setSuccessMessage(`Status service ${statusEditDialog.service.service_detail_name} berhasil diubah menjadi ${statusText}`);
-        
-        // Auto-hide success message after 3 seconds
-        setTimeout(() => setSuccessMessage(""), 3000);
-      } else {
-        throw new Error(json.message || "Gagal mengupdate status service");
-      }
-
-    } catch (err) {
-      console.error("Error updating service status:", err);
-      
-      if (err instanceof TypeError && err.message.includes('fetch')) {
-        setError("Tidak dapat terhubung ke server. Periksa koneksi internet Anda");
-      } else {
-        setError(err instanceof Error ? err.message : "Terjadi kesalahan saat mengupdate status service");
-      }
-    } finally {
-      setStatusUpdateLoading(null);
-      setStatusEditDialog({ show: false, service: null, newStatus: 1 });
-    }
-  };
-
   const handleSort = (field: OrderField) => {
     setSortConfig(prev => ({
       order: field,
@@ -545,33 +375,16 @@ export default function ServicesPage() {
     setDeleteConfirmation({ show: false, service: null });
   };
 
-  const cancelStatusEdit = () => {
-    setStatusEditDialog({ show: false, service: null, newStatus: 1 });
-  };
-
   const getStatusBadge = (statusName: string) => {
-    const isActive = statusName.toLowerCase() === "aktif";
+    const isActive = statusName.toLowerCase() === "inactive";
     return (
       <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
         isActive 
-          ? "bg-green-100 text-green-800" 
-          : "bg-red-100 text-red-800"
+          ? "bg-red-100 text-red-800"
+          : "bg-green-100 text-green-800" 
       }`}>
         <Shield className="h-3 w-3 mr-1" />
         {statusName}
-      </span>
-    );
-  };
-
-  const getOrderTypeBadge = (orderType: string) => {
-    const isNew = orderType.toUpperCase() === "NEW";
-    return (
-      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-        isNew 
-          ? "bg-blue-100 text-blue-800" 
-          : "bg-purple-100 text-purple-800"
-      }`}>
-        {isNew ? "NEW" : "RENEWAL"}
       </span>
     );
   };
@@ -610,6 +423,8 @@ export default function ServicesPage() {
   const startItem = (pagination.page - 1) * pagination.limit + 1;
   const endItem = startItem + services.length - 1;
 
+
+
   // Don't render until client-side hydration is complete
   if (!isClient) {
     return (
@@ -619,25 +434,6 @@ export default function ServicesPage() {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            <div className="text-center text-gray-600">Loading...</div>
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-64 w-full" />
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  // Show loading while token is being validated
-  if (isClient && token === null) {
-    return (
-      <Card className="mt-5">
-        <CardHeader>
-          <CardTitle>Daftar Service</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="text-center text-gray-600">Authenticating...</div>
             <Skeleton className="h-10 w-full" />
             <Skeleton className="h-64 w-full" />
           </div>
@@ -674,60 +470,31 @@ export default function ServicesPage() {
 
         {/* Controls */}
         {!isMobile && (
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
-            <div className="flex items-center space-x-4 w-full sm:w-auto">
-              <input
-                type="text"
-                placeholder="Cari service"
-                value={search}
-                onChange={(e) => handleSearchChange(e.target.value)}
-                className="p-2 border border-gray-300 rounded text-sm w-full sm:w-64 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                aria-label="Cari service"
-              />
-              <div className="flex items-center space-x-2">
-                <Filter className="h-4 w-4 text-gray-500" />
-                <select
-                  value={orderTypeFilter}
-                  onChange={(e) => handleOrderTypeFilterChange(e.target.value as OrderTypeFilter)}
-                  className="p-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
-                  aria-label="Filter berdasarkan tipe order"
-                >
-                  <option value="ALL">Semua Tipe</option>
-                  <option value="NEW">NEW</option>
-                  <option value="RENEWAL">RENEWAL</option>
-                </select>
-              </div>
-            </div>
-            <div className="flex items-center space-x-2">
-                <Button
-                  onClick={() => router.push("/dashboard/add-renewal-service")}
-                  className="flex items-center bg-teal-600 hover:bg-teal-700 cursor-pointer"
-                >
-                  <BadgePlus className="mr-2 h-4 w-4" />
-                  Renewal Service
-                </Button>
-                <Button
-                  onClick={() => router.push("/dashboard/add-service")}
-                  className="flex items-center bg-teal-600 hover:bg-teal-700 cursor-pointer"
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add Service
-                </Button>
-                <select
-                  value={pagination.limit}
-                  onChange={(e) => handleLimitChange(Number(e.target.value))}
-                  className="p-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
-                  aria-label="Jumlah item per halaman"
-                >
-                  <option value={5}>5 per halaman</option>
-                  <option value={10}>10 per halaman</option>
-                  <option value={20}>20 per halaman</option>
-                  <option value={50}>50 per halaman</option>
-                </select>
-              </div>
-          </div>
-        )}
 
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
+          <input
+            type="text"
+            placeholder="Cari service"
+            value={search}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            className="p-2 border border-gray-300 rounded text-sm w-full sm:w-1/3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            aria-label="Cari service"
+          />
+          <div className="flex items-center space-x-2">             
+              <select
+                value={pagination.limit}
+                onChange={(e) => handleLimitChange(Number(e.target.value))}
+                className="p-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                aria-label="Jumlah item per halaman"
+              >
+                <option value={5}>5 per halaman</option>
+                <option value={10}>10 per halaman</option>
+                <option value={20}>20 per halaman</option>
+                <option value={50}>50 per halaman</option>
+              </select>
+            </div>
+        </div>
+        )}
         {isMobile && (
           <div className="flex flex-col gap-4 mb-4">
           {/* Search Bar */}
@@ -739,21 +506,6 @@ export default function ServicesPage() {
             className="p-2 border border-gray-300 rounded text-sm w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
             aria-label="Cari service"
           />
-
-          {/* Filter Row */}
-          <div className="flex items-center space-x-2">
-            <Filter className="h-4 w-4 text-gray-500 flex-shrink-0" />
-            <select
-              value={orderTypeFilter}
-              onChange={(e) => handleOrderTypeFilterChange(e.target.value as OrderTypeFilter)}
-              className="p-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer flex-1"
-              aria-label="Filter berdasarkan tipe order"
-            >
-              <option value="ALL">Semua Tipe</option>
-              <option value="NEW">NEW</option>
-              <option value="RENEWAL">RENEWAL</option>
-            </select>
-          </div>
           
           {/* Controls Row */}
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
@@ -789,8 +541,11 @@ export default function ServicesPage() {
             </div>
           </div>
          </div>
+
         )}
 
+
+        
         {/* Table */}
         <div className="overflow-x-auto">
           <Table>
@@ -800,20 +555,20 @@ export default function ServicesPage() {
                   No.
                 </TableHead>
                 <TableHead 
-                  onClick={() => handleSort("service_detail_name")} 
+                  onClick={() => handleSort("client_name")} 
                   className="cursor-pointer hover:bg-gray-100 select-none"
                   tabIndex={0}
-                  onKeyDown={(e) => e.key === 'Enter' && handleSort("service_detail_name")}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSort("client_name")}
                 >
-                  Nama Service / Klien <SortIndicator field="service_detail_name" />
+                  Nama Service / Klien <SortIndicator field="client_name" />
                 </TableHead>
                 <TableHead 
-                  onClick={() => handleSort("service_type_name")} 
+                  onClick={() => handleSort("service_name")} 
                   className="cursor-pointer hover:bg-gray-100 select-none"
                   tabIndex={0}
-                  onKeyDown={(e) => e.key === 'Enter' && handleSort("service_type_name")}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSort("service_name")}
                 >
-                  Service <SortIndicator field="service_type_name" />
+                  Service <SortIndicator field="service_name" />
                 </TableHead>
                 <TableHead 
                   onClick={() => handleSort("vendor_name")} 
@@ -839,9 +594,6 @@ export default function ServicesPage() {
                 >
                   Status <SortIndicator field="status_name" />
                 </TableHead>
-                <TableHead>
-                  Tipe Order
-                </TableHead>
                 <TableHead 
                   onClick={() => handleSort("start_date")} 
                   className="cursor-pointer hover:bg-gray-100 select-none"
@@ -863,8 +615,6 @@ export default function ServicesPage() {
                     <TableCell><Skeleton className="h-4 w-40 animate-pulse" /></TableCell>
                     <TableCell><Skeleton className="h-4 w-20 animate-pulse" /></TableCell>
                     <TableCell><Skeleton className="h-4 w-20 animate-pulse" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-16 animate-pulse" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-16 animate-pulse" /></TableCell>
                     <TableCell><Skeleton className="h-4 w-28 animate-pulse" /></TableCell>
                     <TableCell><Skeleton className="h-4 w-16 animate-pulse" /></TableCell>
                     <TableCell><Skeleton className="h-8 w-8 rounded-full animate-pulse" /></TableCell>
@@ -881,15 +631,16 @@ export default function ServicesPage() {
                         <div className="text-xs text-gray-500">
                             {service.client_name}
                         </div>
+                      
                     </TableCell>
                     <TableCell className="font-medium">
-                      {service.service_type_name}
+                      {service.service_name}
                       {service.domain_name && (
                         <div className="text-xs text-gray-500">{service.domain_name}</div>
                       )}
                     </TableCell>
                     <TableCell>
-                      {service.vendor_name || "-"}
+                      {service.vendor_name}
                     </TableCell>
                     <TableCell className="font-mono text-sm">
                       {formatCurrency(service.final_price)}
@@ -904,9 +655,6 @@ export default function ServicesPage() {
                     <TableCell>
                       {getStatusBadge(service.status_name)}
                     </TableCell>
-                    <TableCell>
-                      {getOrderTypeBadge(service.order_type)}
-                    </TableCell>
                     <TableCell className="text-sm">
                       {formatDate(service.start_date)}
                     </TableCell>
@@ -916,23 +664,11 @@ export default function ServicesPage() {
                     <TableCell>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" aria-label={`Menu aksi untuk ${service.service_type_name}`} className="cursor-pointer">
+                          <Button variant="ghost" size="icon" aria-label={`Menu aksi untuk ${service.service_name}`} className="cursor-pointer">
                             <MoreVertical className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleEdit(service)} className="cursor-pointer">
-                            <Eye className="mr-2 h-4 w-4" />
-                            <span>Edit Service</span>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleStatusEdit(service)} className="cursor-pointer">
-                            <Edit3 className="mr-2 h-4 w-4" />
-                            <span>Edit Status</span>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleMessage(service)} className="cursor-pointer">
-                            <MessageCircleCode className="mr-2 h-4 w-4" />
-                            <span>Send Message</span>
-                          </DropdownMenuItem>
+                        <DropdownMenuContent align="end">                                            
                           <DropdownMenuItem 
                             onClick={() => handleDelete(service)}
                             disabled={deleteLoading === service.id}
@@ -948,9 +684,9 @@ export default function ServicesPage() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={10} className="text-center text-sm text-gray-500 py-8">
-                    {search || orderTypeFilter !== "ALL"
-                      ? "Service dengan kriteria tersebut tidak ditemukan."
+                  <TableCell colSpan={8} className="text-center text-sm text-gray-500 py-8">
+                    {search
+                      ? "Service dengan kata kunci tersebut tidak ditemukan."
                       : "Tidak ada data service ditemukan."}
                   </TableCell>
                 </TableRow>
@@ -964,11 +700,6 @@ export default function ServicesPage() {
           <div className="flex flex-col sm:flex-row justify-between items-center mt-4 gap-4">
             <div className="text-sm text-gray-600">
               Halaman {pagination.page} - Menampilkan {startItem} - {endItem} service
-              {orderTypeFilter !== "ALL" && (
-                <span className="ml-2 text-gray-500">
-                  (Filter: {orderTypeFilter})
-                </span>
-              )}
             </div>
             <div className="flex space-x-1">
               <Button
@@ -1081,58 +812,6 @@ export default function ServicesPage() {
             </div>
           </div>
         )}
-
-        {/* Status Edit Dialog */}
-        <Dialog open={statusEditDialog.show} onOpenChange={cancelStatusEdit}>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle>Edit Status Service</DialogTitle>
-              <DialogDescription>
-                Ubah status untuk service <strong>{statusEditDialog.service?.service_detail_name}</strong>{" "}
-                milik klien <strong>{statusEditDialog.service?.client_name}</strong>
-              </DialogDescription>
-            </DialogHeader>
-            
-            <div className="flex items-center space-x-2 py-4">
-              <div className="grid flex-1 gap-2">
-                <label htmlFor="status-select" className="text-sm font-medium">
-                  Status:
-                </label>
-                <select
-                  id="status-select"
-                  value={statusEditDialog.newStatus}
-                  onChange={(e) => setStatusEditDialog(prev => ({ 
-                    ...prev, 
-                    newStatus: Number(e.target.value) 
-                  }))}
-                  className="w-full p-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  disabled={statusUpdateLoading !== null}
-                >
-                  <option value={1}>Aktif</option>
-                  <option value={0}>Tidak Aktif</option>
-                </select>
-              </div>
-            </div>
-
-            <DialogFooter className="sm:justify-start">
-              <Button
-                variant="outline"
-                onClick={cancelStatusEdit}
-                disabled={statusUpdateLoading !== null}
-                className="cursor-pointer"
-              >
-                Batal
-              </Button>
-              <Button
-                onClick={confirmStatusUpdate}
-                disabled={statusUpdateLoading !== null}
-                className="cursor-pointer"
-              >
-                {statusUpdateLoading ? "Menyimpan..." : "Simpan"}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
       </CardContent>
     </Card>
     </>

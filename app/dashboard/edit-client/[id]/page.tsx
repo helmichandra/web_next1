@@ -82,6 +82,7 @@ export default function EditClient() {
   const params = useParams();
   const router = useRouter();
   const clientId = params.id as string;
+  const [whatsappInput, setWhatsappInput] = useState<string>("");
   
   const [clientTypes, setClientTypes] = useState<ClientType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -101,7 +102,6 @@ export default function EditClient() {
     modified_by: username,
   });
 
-  // Update modified_by when username changes
   useEffect(() => {
     setFormData(prev => ({
       ...prev,
@@ -126,6 +126,46 @@ export default function EditClient() {
     };
 
     return statusMessages[response.status] || `${defaultMessage} (status: ${response.status})`;
+  };
+
+  const parseWhatsAppNumber = (fullNumber: string): string => {
+    if (!fullNumber) return "";
+    
+    if (fullNumber.startsWith('+62')) {
+      return fullNumber.substring(3);
+    }
+    
+    if (fullNumber.startsWith('62')) {
+      return fullNumber.substring(2);
+    }
+    
+    if (fullNumber.startsWith('0')) {
+      return fullNumber.substring(1);
+    }
+    
+    return fullNumber;
+  };
+
+  const handleWhatsAppChange = (value: string) => {
+    const numbersOnly = value.replace(/\D/g, '');
+    
+    const cleanNumber = numbersOnly.startsWith('0') ? numbersOnly.substring(1) : numbersOnly;
+    
+    const limitedNumber = cleanNumber.substring(0, 12);
+    
+    setWhatsappInput(limitedNumber);
+    
+    setFormData(prev => ({
+      ...prev,
+      whatsapp_number: limitedNumber ? `+62${limitedNumber}` : ""
+    }));
+    
+    if (formErrors.whatsapp_number) {
+      setFormErrors(prev => ({
+        ...prev,
+        whatsapp_number: undefined
+      }));
+    }
   };
 
   // Fetch client types (you might need to create this API endpoint)
@@ -194,10 +234,10 @@ export default function EditClient() {
   // Fetch client data
   const fetchClient = async () => {
     if (!token || !clientId) return;
-
+  
     setIsLoading(true);
     clearMessages();
-
+  
     try {
       const response = await fetch(`/api/clients/id/${clientId}`, {
         headers: {
@@ -206,27 +246,38 @@ export default function EditClient() {
           "Content-Type": "application/json",
         },
       });
-      console.log(response)
+      
       if (!response.ok) {
         const errorMessage = handleApiError(response, "Gagal memuat data klien");
         setError(errorMessage);
         return;
       }
-
+  
       const json = await response.json();
       if (json.code === 200 && json.data) {
         const clientData = json.data;
-        console.log(clientData)
         
-        // Populate form with existing client data
+        // Parse WhatsApp number untuk input field
+        const parsedWhatsApp = parseWhatsAppNumber(clientData.whatsapp_number || "");
+        setWhatsappInput(parsedWhatsApp);
+        
+        // Populate form dengan data klien yang sudah ada
         setFormData({
           name: clientData.name || "",
           client_type_id: clientData.client_type_id || 0,
           address: clientData.address || "",
-          whatsapp_number: clientData.whatsapp_number || "",
+          whatsapp_number: clientData.whatsapp_number || "", // Simpan format asli untuk sementara
           email: clientData.email || "",
           modified_by: username,
         });
+        
+        // Jika ada nomor WhatsApp, format ulang dengan +62
+        if (parsedWhatsApp) {
+          setFormData(prev => ({
+            ...prev,
+            whatsapp_number: `+62${parsedWhatsApp}`
+          }));
+        }
       } else {
         setError(json.message || "Gagal memuat data klien");
       }
@@ -251,23 +302,24 @@ export default function EditClient() {
 
   const validateForm = (): boolean => {
     const errors: FormErrors = {};
-
+  
     if (!formData.name.trim()) {
       errors.name = "Nama klien wajib diisi";
     }
-
+  
     if (!formData.client_type_id || formData.client_type_id === 0) {
       errors.client_type_id = "Tipe klien wajib dipilih";
     }
-
+  
     if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       errors.email = "Format email tidak valid";
     }
-
-    if (formData.whatsapp_number && !/^[0-9+\-\s()]+$/.test(formData.whatsapp_number)) {
-      errors.whatsapp_number = "Format nomor WhatsApp tidak valid";
+  
+    // Validasi WhatsApp - harus berisi minimal 8 digit setelah +62 jika diisi
+    if (formData.whatsapp_number && whatsappInput.length > 0 && whatsappInput.length < 8) {
+      errors.whatsapp_number = "Nomor WhatsApp harus minimal 8 digit setelah +62";
     }
-
+  
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -307,7 +359,6 @@ export default function EditClient() {
         },
         body: JSON.stringify(formData),
       });
-      console.log(response)
 
       if (!response.ok) {
         const errorMessage = handleApiError(response, "Gagal mengupdate klien");
@@ -495,20 +546,34 @@ export default function EditClient() {
             <label htmlFor="whatsapp_number" className="text-sm font-medium text-gray-700">
               Nomor WhatsApp
             </label>
-            <input
-              id="whatsapp_number"
-              type="tel"
-              value={formData.whatsapp_number}
-              onChange={(e) => handleInputChange("whatsapp_number", e.target.value)}
-              className={`w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                formErrors.whatsapp_number ? "border-red-500" : "border-gray-300"
-              }`}
-              placeholder="081234567890"
-              disabled={isSubmitting}
-            />
+            <div className="flex">
+              {/* Prefix +62 yang di-lock */}
+              <div className="flex items-center px-3 py-3 bg-gray-100 border border-r-0 border-gray-300 rounded-l-lg text-gray-600 font-medium">
+                +62
+              </div>
+              {/* Input untuk nomor */}
+              <input
+                id="whatsapp_number"
+                type="tel"
+                value={whatsappInput}
+                onChange={(e) => handleWhatsAppChange(e.target.value)}
+                className={`flex-1 p-3 border rounded-r-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  formErrors.whatsapp_number ? "border-red-500" : "border-gray-300"
+                }`}
+                placeholder="812345678901"
+                disabled={isSubmitting}
+                maxLength={12}
+              />
+            </div>
+            {/* Tampilkan nomor lengkap sebagai preview */}
+            {whatsappInput && (
+              <p className="text-sm text-gray-600">
+                Preview: <span className="font-medium text-green-600">+62{whatsappInput}</span>
+              </p>
+            )}
             {formErrors.whatsapp_number && (
               <p className="text-red-500 text-sm">{formErrors.whatsapp_number}</p>
-            )}
+            )}           
           </div>
 
           {/* Address Field */}

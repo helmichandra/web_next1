@@ -110,6 +110,7 @@ const ReportPreview = () => {
   const [loading, setLoading] = useState(false);
   const [filtersLoading, setFiltersLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);
+  const [error, setError] = useState<string>('');
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
   const [filters, setFilters] = useState<Filters>({
     start_date: '',
@@ -165,14 +166,17 @@ const ReportPreview = () => {
     const fetchFilterOptions = async () => {
       try {
         setFiltersLoading(true);
+        setError('');
         
         // Fetch clients
         const clientsResponse = await fetch(`/api/clients/all`, {
           headers: apiHeaders,
         });
         const clientsData = await clientsResponse.json();
-        if (clientsData.code === 200) {
+        if (clientsData.code === 200 && Array.isArray(clientsData.data)) {
           setClients(clientsData.data);
+        } else {
+          setClients([]);
         }
 
         // Fetch service types
@@ -180,11 +184,16 @@ const ReportPreview = () => {
           headers: apiHeaders,
         });
         const serviceTypesData = await serviceTypesResponse.json();
-        if (serviceTypesData.code === 200) {
+        if (serviceTypesData.code === 200 && Array.isArray(serviceTypesData.data)) {
           setServiceTypes(serviceTypesData.data);
+        } else {
+          setServiceTypes([]);
         }
       } catch (error) {
         console.error('Error fetching filter options:', error);
+        setError('Failed to load filter options');
+        setClients([]);
+        setServiceTypes([]);
       } finally {
         setFiltersLoading(false);
       }
@@ -197,6 +206,7 @@ const ReportPreview = () => {
   const fetchReports = async () => {
     try {
       setLoading(true);
+      setError('');
       const queryParams = new URLSearchParams();
       
       Object.entries(filters).forEach(([key, value]) => {
@@ -208,13 +218,42 @@ const ReportPreview = () => {
       const response = await fetch(`/api/services/reports/preview?${queryParams.toString()}`,{
         headers: apiHeaders,
       });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
       const data = await response.json();
       
       if (data.code === 200) {
-        setReports(data.data.data || data.data);
+        // Handle different response structures
+        let reportData = null;
+        
+        if (data.data) {
+          // If data.data is an array
+          if (Array.isArray(data.data)) {
+            reportData = data.data;
+          } 
+          // If data.data has a data property that's an array
+          else if (data.data.data && Array.isArray(data.data.data)) {
+            reportData = data.data.data;
+          }
+          // If data.data is an object but not an array
+          else if (typeof data.data === 'object' && data.data !== null) {
+            reportData = [];
+          }
+        }
+        
+        // Fallback to empty array if reportData is still null
+        setReports(Array.isArray(reportData) ? reportData : []);
+      } else {
+        setReports([]);
+        setError(data.message || 'Failed to fetch reports');
       }
     } catch (error) {
       console.error('Error fetching reports:', error);
+      setReports([]);
+      setError(error instanceof Error ? error.message : 'Failed to fetch reports');
     } finally {
       setLoading(false);
     }
@@ -224,6 +263,7 @@ const ReportPreview = () => {
   const downloadExcelReport = async () => {
     try {
       setDownloading(true);
+      setError('');
       const queryParams = new URLSearchParams();
       
       Object.entries(filters).forEach(([key, value]) => {
@@ -239,7 +279,17 @@ const ReportPreview = () => {
         },
       });
 
-      if (response.ok) {
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const contentType = response.headers.get('content-type');
+      
+      // Check if response is JSON (error response) or Excel file
+      if (contentType && contentType.includes('application/json')) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to download report');
+      } else {
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -249,11 +299,12 @@ const ReportPreview = () => {
         a.click();
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
-      } else {
-        console.error('Failed to download Excel file');
+        toast.success('Report downloaded successfully!');
       }
     } catch (error) {
       console.error('Error downloading Excel report:', error);
+      setError(error instanceof Error ? error.message : 'Failed to download report');
+      toast.error('Failed to download report');
     } finally {
       setDownloading(false);
     }
@@ -396,6 +447,30 @@ const ReportPreview = () => {
             </div>
           </div>
         </div>
+
+        {/* Error Alert */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <X className="h-5 w-5 text-red-400" />
+              </div>
+              <div className="ml-3">
+                <p className="text-sm text-red-800">{error}</p>
+              </div>
+              <div className="ml-auto pl-3">
+                <div className="-mx-1.5 -my-1.5">
+                  <button
+                    onClick={() => setError('')}
+                    className="inline-flex rounded-md bg-red-50 p-1.5 text-red-500 hover:bg-red-100"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Filters Card */}
         <Card className="border-0 shadow-sm">
@@ -614,6 +689,7 @@ const ReportPreview = () => {
                   setFilters({ start_date: '', end_date: '', client_ids: 'all', service_type_ids: 'all', status_id: '1' });
                   setSelectedClientIds([]);
                   setSelectedServiceTypeIds([]);
+                  setError('');
                 }}
                 className="text-sm"
               >
@@ -667,7 +743,9 @@ const ReportPreview = () => {
               <div className="text-center py-12">
                 <FileText className="h-12 w-12 text-gray-300 mx-auto mb-4" />
                 <h3 className="text-lg font-medium text-gray-900 mb-2">No reports found</h3>
-                <p className="text-gray-600 mb-4">Try adjusting your filters or date range</p>
+                <p className="text-gray-600 mb-4">
+                  {error ? 'There was an error loading the reports.' : 'Try adjusting your filters or date range'}
+                </p>
                 <Button onClick={fetchReports} variant="outline">
                   <RefreshCw className="h-4 w-4 mr-2" />
                   Refresh

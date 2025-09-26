@@ -124,13 +124,13 @@ export default function Sidebar({ onMinimizeChange }: SidebarProps) {
       icon: Settings
     },
     { 
-      label: "Pengingat WhatsApp", 
-      href: "#",
+      label: "WhatsApp Log", 
+      href: "/dashboard/whatsapplog-page",
       icon: MessageSquare
     },
     { 
-      label: "Riwayat Layanan", 
-      href: "#",
+      label: "Layanan Inactive", 
+      href: "/dashboard/service-history-page",
       icon: History
     },
     { 

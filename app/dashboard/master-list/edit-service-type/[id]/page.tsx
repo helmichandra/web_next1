@@ -221,7 +221,6 @@ export default function EditServiceType() {
         },
       });
 
-      console.log("Response status:", response.status);
       
       if (!response.ok) {
         const errorMessage = handleApiError(response, "Gagal memuat data service type");
@@ -231,7 +230,6 @@ export default function EditServiceType() {
       }
 
       const json = await response.json();
-      console.log("API Response:", json);
       
       if (json.code === 200 && json.data) {
         const serviceTypeData = json.data;
@@ -371,7 +369,6 @@ export default function EditServiceType() {
         }),
       });
 
-      console.log("Update response:", response);
 
       if (!response.ok) {
         const errorMessage = handleApiError(response, "Gagal mengupdate service type");

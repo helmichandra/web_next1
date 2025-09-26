@@ -332,7 +332,6 @@ export default function UserPage() {
     const startTime = Date.now();
 
     try {
-      console.log('Fetching from API:', apiUrl);
       const response = await fetch(apiUrl, {
         headers: {
           Authorization: `Bearer ${token}`,

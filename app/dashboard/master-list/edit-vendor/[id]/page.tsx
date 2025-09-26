@@ -160,7 +160,6 @@ export default function EditVendor() {
         },
       });
 
-      console.log("Response status:", response.status);
       
       if (!response.ok) {
         const errorMessage = handleApiError(response, "Gagal memuat data klien");
@@ -170,7 +169,6 @@ export default function EditVendor() {
       }
 
       const json = await response.json();
-      console.log("API Response:", json);
       
       if (json.code === 200 && json.data) {
         const clientData = json.data;
@@ -265,7 +263,6 @@ export default function EditVendor() {
         body: JSON.stringify(formData),
       });
 
-      console.log("Update response:", response);
 
       if (!response.ok) {
         const errorMessage = handleApiError(response, "Gagal mengupdate klien");

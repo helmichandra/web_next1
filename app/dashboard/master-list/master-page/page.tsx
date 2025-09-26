@@ -28,6 +28,7 @@ interface DecodedToken {
   role: string;
   exp: number;
 }
+
 // Updated Types based on actual API response
 type ClientType = {
   id: number;
@@ -107,35 +108,37 @@ type DeleteConfirmation = {
 
 // API Response structure
 type ApiResponse<T> = {
-    code: number;
-    status: string;
-    data: {
-      data: T[];
-      pagination: {
-        search: string;
-        page: number;
-        limit: number;
-        order_by: string;
-        sort_by: string;
-        offset: number;
-      };
+  code: number;
+  status: string;
+  data: {
+    data: T[] | null;
+    pagination: {
+      search: string;
+      page: number;
+      limit: number;
+      order_by: string;
+      sort_by: string;
+      offset: number;
     };
-  };
-  type TabDataMap = {
-    'client-type': ClientType[];
-    'client-status': ClientStatus[];
-    'service-types': ServiceType[];
-    'vendor': Vendors[];
-    'service-categories': ServiceCategories[];
-  };
-  
-  type CacheEntry<T> = {
-    data: T;
-    page: number;
-    limit: number;
-    total: number;
-  };
+    total?: number; // total is at the same level as pagination
+  } | null;
+};
 
+type TabDataMap = {
+  'client-type': ClientType[];
+  'client-status': ClientStatus[];
+  'service-types': ServiceType[];
+  'vendor': Vendors[];
+  'service-categories': ServiceCategories[];
+};
+
+type CacheEntry<T> = {
+  data: T;
+  page: number;
+  limit: number;
+  total: number;
+  isLastPage?: boolean;
+};
 
 // Custom hook for token management
 const useAuthToken = () => {
@@ -173,6 +176,7 @@ export default function MasterPage() {
     item: null,
     type: "client-type",
   });
+
   const generateCacheKey = (tabType: TabType): string => {
     return JSON.stringify({
       tabType,
@@ -189,6 +193,7 @@ export default function MasterPage() {
     limit: 10,
     total: 0
   });
+
   const getRowNumber = (index: number): number => {
     return (pagination.page - 1) * pagination.limit + index + 1;
   };
@@ -208,7 +213,6 @@ export default function MasterPage() {
     { id: 'vendor' as const, label: 'Vendor', icon: HouseWifi },
     { id: 'service-categories' as const, label: 'Service Categories', icon: ListFilter },
   ];
-
 
   useEffect(() => {
     const storedToken = localStorage.getItem('token');
@@ -233,8 +237,8 @@ export default function MasterPage() {
         localStorage.removeItem('token');
         setTimeout(() => {
           router.push('/auth/sign-in');
-        }, 2000); // beri waktu 2 detik untuk tampilkan toast
-      }, 60 * 60 * 1000); // 30 menit
+        }, 2000);
+      }, 60 * 60 * 1000);
   
       return () => clearTimeout(timeout); 
 
@@ -244,6 +248,7 @@ export default function MasterPage() {
       router.push('/auth/sign-in');
     }
   }, [router]);
+
   // Router navigation functions
   const getAddRoute = (tabType: TabType): string => {
     const routes = {
@@ -266,7 +271,6 @@ export default function MasterPage() {
     };
     return routes[tabType];
   };
-
 
   const handleAddNew = () => {
     const route = getAddRoute(activeTab);
@@ -310,6 +314,7 @@ export default function MasterPage() {
   
     return `${getApiEndpoint(tabType)}?${params.toString()}`;
   };
+  console.log(pagination);
 
   const clearMessages = () => {
     setError("");
@@ -372,9 +377,9 @@ export default function MasterPage() {
       return;
     }
   
-    // Jika cache tidak ada, fetch dari API
     try {
       const apiUrl = buildApiUrl(tabType);
+      console.log('Fetching from:', apiUrl);
   
       const response = await fetch(apiUrl, {
         headers: {
@@ -391,51 +396,97 @@ export default function MasterPage() {
       }
   
       const json: ApiResponse<ClientType | ClientStatus | ServiceType | Vendors | ServiceCategories> = await response.json();
-      if (json.code === 200 && json.data.data) {
-        const data = json.data.data;
+      console.log('API Response:', json);
+      
+      if (json.code === 200 && json.data) {
+        // Handle null data case - when API returns data: null, treat as empty array
+        const payload = json.data.data ?? [];
+        const data = Array.isArray(payload) ? payload : [];
   
-        // Update state
-        switch (tabType) {
-          case 'client-type':
-            setClientTypes(data as ClientType[]);
-            break;
-          case 'client-status':
-            setClientStatuses(data as ClientStatus[]);
-            break;
-          case 'service-types':
-            setServiceTypes(data as ServiceType[]);
-            break;
-          case 'vendor':
-            setVendors(data as Vendors[]);
-            break;
-          case 'service-categories':
-            setServiceCategories(data as ServiceCategories[]);
-            break;
+        // FIXED: Extract total from the correct location in the response
+        const apiTotal = json.data.total; // total is at data level, not pagination level
+        const currentPage = json.data.pagination.page;
+        const limit = json.data.pagination.limit;
+  
+        console.log('Data processed:', {
+          tabType,
+          page: currentPage,
+          limit,
+          dataLength: data.length,
+          apiTotal,
+          isNull: json.data.data === null
+        });
+  
+        // If we get null data (no results) and we're on page > 1, redirect to previous page
+        if (json.data.data === null && pagination.page > 1) {
+          console.log('No data found, redirecting to previous page');
+          handlePageChange(pagination.page - 1);
+          setIsLoading(false);
+          return;
         }
   
+        // If we get null data on page 1, show empty state
+        if (json.data.data === null && pagination.page === 1) {
+          // Set empty data
+          switch (tabType) {
+            case 'client-type': setClientTypes([]); break;
+            case 'client-status': setClientStatuses([]); break;
+            case 'service-types': setServiceTypes([]); break;
+            case 'vendor': setVendors([]); break;
+            case 'service-categories': setServiceCategories([]); break;
+          }
+          
+          setPagination(prev => ({ ...prev, total: 0 }));
+          setIsLoading(false);
+          return;
+        }
+  
+        // Set state per tab with actual data
+        switch (tabType) {
+          case 'client-type': setClientTypes(data as ClientType[]); break;
+          case 'client-status': setClientStatuses(data as ClientStatus[]); break;
+          case 'service-types': setServiceTypes(data as ServiceType[]); break;
+          case 'vendor': setVendors(data as Vendors[]); break;
+          case 'service-categories': setServiceCategories(data as ServiceCategories[]); break;
+        }
+  
+        // FIXED: Use the total from API response directly
+        const computedTotal = apiTotal && apiTotal > 0 ? apiTotal : 0;
+  
+        console.log('Pagination calculated:', {
+          currentPage,
+          limit,
+          dataLength: data.length,
+          apiTotal,
+          computedTotal
+        });
+  
+        // Set pagination
         setPagination(prev => ({
           ...prev,
-          page: json.data.pagination.page,
-          limit: json.data.pagination.limit,
-          total: json.data.pagination.offset + data.length + (data.length === json.data.pagination.limit ? 1 : 0),
+          page: currentPage,
+          limit: limit,
+          total: computedTotal,
         }));
   
-        // Simpan ke cache
+        // Cache the result
+        const cacheEntry: CacheEntry<any> = {
+          data,
+          page: currentPage,
+          limit: limit,
+          total: computedTotal,
+        };
+  
         setDataCache(prev => {
           const newCache = new Map(prev);
-          newCache.set(cacheKey, {
-            data: data as TabDataMap[typeof tabType],
-            page: json.data.pagination.page,
-            limit: json.data.pagination.limit,
-            total: json.data.pagination.offset + data.length + (data.length === json.data.pagination.limit ? 1 : 0),
-          });
+          newCache.set(cacheKey, cacheEntry);
           return newCache;
         });
   
       } else {
-        setError("Gagal memuat data");
+        setError("Gagal memuat data - response tidak valid");
       }
-  
+      
     } catch (error) {
       console.error("Error fetching data:", error);
       if (error instanceof TypeError && error.message.includes('fetch')) {
@@ -452,7 +503,6 @@ export default function MasterPage() {
     }
   };
   
-  
 
   useEffect(() => {
     if (!isClient) return;
@@ -466,12 +516,31 @@ export default function MasterPage() {
 
   const handleTabChange = (tabId: TabType) => {
     setActiveTab(tabId);
-    setPagination(prev => ({ ...prev, page: 1 }));
+    setPagination({ page: 1, limit: 10, total: 0 });
     setSearch("");
     clearMessages();
+    
+    // Clear cache for this tab to get fresh data
+    setDataCache(prev => {
+      const newCache = new Map(prev);
+      for (const [key] of newCache) {
+        if (key.includes(`"tabType":"${tabId}"`)) {
+          newCache.delete(key);
+        }
+      }
+      return newCache;
+    });
   };
 
   const handlePageChange = (newPage: number) => {
+    if (newPage < 1) return;
+    
+    // Don't allow going beyond reasonable bounds
+    if (pagination.total > 0) {
+      const maxPage = Math.ceil(pagination.total / pagination.limit);
+      if (newPage > maxPage) return;
+    }
+    
     setPagination(prev => ({ ...prev, page: newPage }));
   };
 
@@ -479,13 +548,20 @@ export default function MasterPage() {
     setPagination(prev => ({
       ...prev,
       limit: newLimit,
-      page: 1
+      page: 1,
+      total: 0 // Reset total to recalculate with new limit
     }));
+    
+    // Clear cache when limit changes
+    setDataCache(new Map());
   };
 
   const handleSearchChange = (value: string) => {
     setSearch(value);
-    setPagination(prev => ({ ...prev, page: 1 }));
+    setPagination(prev => ({ ...prev, page: 1, total: 0 }));
+    
+    // Clear cache when search changes
+    setDataCache(new Map());
   };
 
   const handleSort = (field: OrderField) => {
@@ -493,7 +569,10 @@ export default function MasterPage() {
       order: field,
       sort: prev.order === field ? (prev.sort === "asc" ? "desc" : "asc") : "desc"
     }));
-    setPagination(prev => ({ ...prev, page: 1 }));
+    setPagination(prev => ({ ...prev, page: 1, total: 0 }));
+    
+    // Clear cache when sort changes
+    setDataCache(new Map());
   };
 
   const handleDelete = (item: ClientType | ClientStatus | ServiceType) => {
@@ -551,6 +630,12 @@ export default function MasterPage() {
             break;
         }
         
+        // Update total count
+        setPagination(prev => ({ ...prev, total: Math.max(0, prev.total - 1) }));
+        
+        // Clear cache to force refresh
+        setDataCache(new Map());
+        
         setSuccessMessage(`Data ${deleteConfirmation.item.name} berhasil dihapus`);
         setTimeout(() => setSuccessMessage(""), 3000);
       } else {
@@ -607,7 +692,7 @@ export default function MasterPage() {
   // Table headers configuration based on active tab
   const getTableHeaders = () => {
     const baseHeaders = [
-      { key: "no", label: "No", sortable: false }, // Tambahkan header No
+      { key: "no", label: "No", sortable: false },
       { key: "name", label: "Nama", sortable: true },
       { key: "description", label: "Deskripsi", sortable: true },
     ];
@@ -677,10 +762,21 @@ export default function MasterPage() {
 
   const currentData = getCurrentData();
   const tableHeaders = getTableHeaders();
-  const hasNextPage = currentData.length === pagination.limit;
+  
+  // Improved pagination logic
+  const hasNextPage = (() => {
+    if (pagination.total > 0) {
+      // We know the total, check if there are more pages
+      return pagination.page < Math.ceil(pagination.total / pagination.limit);
+    }
+    return false; // If no total, assume no more pages
+  })();
+
   const hasPrevPage = pagination.page > 1;
-  const startItem = (pagination.page - 1) * pagination.limit + 1;
-  const endItem = startItem + currentData.length - 1;
+  const startItem = currentData.length > 0 ? (pagination.page - 1) * pagination.limit + 1 : 0;
+  const endItem = currentData.length > 0 ? startItem + currentData.length - 1 : 0;
+  const totalPages = pagination.total > 0 ? Math.ceil(pagination.total / pagination.limit) : 0;
+
 
   // Don't render until client-side hydration is complete
   if (!isClient) {
@@ -729,7 +825,6 @@ export default function MasterPage() {
             </div>
           </div>
         </div>
-
 
         {/* Tab Content */}
         <div className="p-6">
@@ -789,7 +884,6 @@ export default function MasterPage() {
                     Tambah Data
                   </Button>
                 </div>
-                
               </div>
               
               {/* Table */}
@@ -851,7 +945,10 @@ export default function MasterPage() {
               {currentData.length > 0 && (
                 <div className="flex flex-col sm:flex-row justify-between items-center mt-4 gap-4">
                   <div className="text-sm text-gray-600">
-                    Halaman {pagination.page} - Menampilkan {startItem} - {endItem} data
+                    Halaman {pagination.page}
+                    {totalPages > 0 ? ` dari ${totalPages}` : ''} - 
+                    Menampilkan {startItem} - {endItem} data
+                    {pagination.total > 0 ? ` dari ${pagination.total}` : ''}
                   </div>
                   <div className="flex space-x-1">
                     <Button
@@ -884,6 +981,7 @@ export default function MasterPage() {
                       {pagination.page}
                     </Button>
                     
+                    {/* Show next page number if there are more pages */}
                     {hasNextPage && (
                       <Button
                         variant="outline"
@@ -906,13 +1004,18 @@ export default function MasterPage() {
                     >
                       ›
                     </Button>
+                    
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handlePageChange(pagination.page + 1)}
-                      disabled={!hasNextPage}
-                      aria-label="Halaman terakhir"
+                      onClick={() => {
+                        if (totalPages > 0) {
+                          handlePageChange(totalPages);
+                        }
+                      }}
+                      disabled={totalPages === 0 || pagination.page >= totalPages}
                       className="cursor-pointer"
+                      aria-label="Halaman terakhir"
                     >
                       ≫
                     </Button>

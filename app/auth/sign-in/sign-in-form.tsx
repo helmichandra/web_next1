@@ -86,7 +86,6 @@ export default function SignInForm() {
       }
   
       const result = await response.json();
-      console.log('Login success:', result);
       if (result.data && result.data.token) {
         storeToken(result.data.token);
         
@@ -189,14 +188,7 @@ export default function SignInForm() {
           </form>
         </CardContent>
 
-        <CardFooter className="flex flex-col gap-2 text-center text-sm text-muted-foreground">
-          <p>
-            Lupa Password?{" "}
-            <a href="/auth/change-password" className="text-blue-600 hover:underline font-semibold">
-              Ganti
-            </a>
-          </p>
-        </CardFooter>
+
       </Card>
     </div>
   )

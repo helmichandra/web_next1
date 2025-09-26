@@ -85,7 +85,6 @@ export default function RolePage() {
             "Content-Type": "application/json",
           },
         });
-        console.log("Headers diterima:", response.headers);
 
         if (!response.ok) {
           if (response.status === 401) {

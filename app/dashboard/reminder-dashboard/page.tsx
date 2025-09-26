@@ -1,11 +1,10 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { Bell, Calendar, Clock, Building2, User, AlertCircle, Filter, ChevronLeft, ChevronRight, DollarSign } from 'lucide-react';
+import { Bell, Calendar, Building2, User, Filter, ChevronLeft, ChevronRight, DollarSign } from 'lucide-react';
 import { jwtDecode } from 'jwt-decode';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';

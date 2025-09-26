@@ -13,7 +13,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreVertical, Eye, Plus, Trash, AlertCircle, Users, Shield, BadgePlus, MessageCircleCode } from "lucide-react";
+import { MoreVertical, Plus, Trash, AlertCircle, Users, Shield, BadgePlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -376,12 +376,12 @@ export default function ServicesHistoryPage() {
   };
 
   const getStatusBadge = (statusName: string) => {
-    const isActive = statusName.toLowerCase() === "inactive";
+    const isActive = statusName.toLowerCase() === "aktif";
     return (
       <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
         isActive 
-          ? "bg-red-100 text-red-800"
-          : "bg-green-100 text-green-800" 
+          ? "bg-green-100 text-green-800" 
+          : "bg-red-100 text-red-800"
       }`}>
         <Shield className="h-3 w-3 mr-1" />
         {statusName}
